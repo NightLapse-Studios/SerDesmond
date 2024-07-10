@@ -304,10 +304,11 @@ type Tokens = { string }
 
 local NodeConstructors
 
-local function node_from_token(tokens: Tokens, idx: number): (ASTNode | ASTChildren, number)
+local function node_from_token(tokens: Tokens, idx: number): (ASTNode | ASTChildren | nil, number)
     local token = tokens[idx]
 
     if string.sub(token, 1, 1) == "#" then
+		-- Really a no-op
         return NodeConstructors.comment(tokens, idx)
     end
 
@@ -368,6 +369,12 @@ local function parse_binding_list(tokens: Tokens, idx: number): ({ASTBinding} | 
             break            
         end
 
+		if string.sub(tokens[idx], 1, 1) == "#" then
+			idx += 1
+			consumed_total += 1
+			continue
+		end
+
         local child, consumed = parse_binding(tokens, idx)
         table.insert(children, child)
         idx += consumed
@@ -410,7 +417,7 @@ local function parse_chunk(tokens: Tokens, idx: number): (ASTChildren, number)
         local root_node, children_consumed = node_from_token(tokens, idx)
         
         consumed += children_consumed
-        idx += root_node.TokenSize
+        idx += children_consumed
 
         table.insert(nodes, root_node)
     end
@@ -1527,12 +1534,29 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 	]]
     local struct_str = [[
         struct(
+			# test
             "a": i8,
+			# test 2
             "b": f64,
             "c": i8,
 			1: array(i8, f32)
         )
     ]]
+	local comments_in_weird_spots_str = [[
+		struct(
+			#test
+			"a": i8,
+			#test 2
+		),
+		vector3(
+			#test
+			i8
+			#test
+			,
+			i8,
+			i8
+		)
+	]]
     local enum_str = [[
         enum("asd", "asdf", "asdfg")
     ]]
@@ -1554,6 +1578,9 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 	end)
     local _, enum = pcall(function()
         return pretty_compile(enum_str)
+    end)
+    local _, comments_in_weird_spots = pcall(function()
+        return pretty_compile(comments_in_weird_spots_str)
     end)
 
 	T:Test("Size specifier", function()
@@ -1614,9 +1641,19 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			T.Equal, typeof(enum.Serialize), "function",
 			T.Equal, typeof(enum.Deserialize), "function"
 		)
+		T:ForContext("comments in construct",
+			T.Equal, typeof(comments_in_weird_spots.Serialize), "function",
+			T.Equal, typeof(comments_in_weird_spots.Deserialize), "function"
+		)
     end)
 
     T:Test("Do the serdes junk", function()
+		local t, t2 = comments_in_weird_spots.Deserialize(comments_in_weird_spots.Serialize({a = 1}, Vector3.new(2, 3, 4)))
+        T:ForContext("comments in construct",
+            T.Equal, t.a, 1,
+			T.Equal, t2, Vector3.new(2, 3, 4) 
+        )
+
 		local t = enum.Deserialize(enum.Serialize({"asd", "asd", "asdfg"}))
         T:ForContext("enum",
             T.Equal, t[1], "asd",

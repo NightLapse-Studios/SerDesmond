@@ -2,6 +2,25 @@ local mod = { }
 
 local SerDesmond = require(script.Parent.SerDesmond)
 
+local function dump_bits(buf: buffer)
+	local t = ""
+
+	local len = buffer.len(buf)
+	for i = 0, len - 1, 1 do
+		local byte = buffer.readu8(buf, i)
+		for j = 7, 0, -1 do
+			local b = bit32.extract(byte, j, 1)
+			t ..= tostring(b)
+		end
+
+		if i < len - 1 then
+			t ..= " "
+		end
+	end
+
+	return t
+end
+
 local LMT = require(game.ReplicatedFirst.Lib.LMTypes)
 function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
     local array_str = [[

@@ -471,207 +471,229 @@ end
 -- The parse function handles closing parenthesis but not opening ones since each of these
 -- will be consuming tokens after the opening parenthesis
 
-local _NodeConstructors: { ({ string }, idx: number, ...any) -> (ASTNode, number) } = {
-    root = function(tokens: { string }, idx)
-        local children, consumed = parse_chunk(tokens, 1)
-        local node = new_node("root", children, 1, consumed) :: ASTRoot
-        return node, consumed
-    end,
-    error = function(tokens: { string }, idx: number, err: string, size: number)
-        local node = new_node("error", tokens[idx], idx, size, err) :: ASTError
-        return node, size
-    end,
-    error_with_unparsed_children = function(tokens: { string }, idx: number, err: string)
-        local children, consumed = parse_chunk(tokens, idx + 1)
-        local consumed_total = consumed + 1
-        local node, _ = NodeConstructors.error_with_children(tokens, idx, err, consumed_total, children)
-        return node, consumed_total
-    end,
-    error_with_children = function(tokens: { string }, idx: number, err: string, token_size: number, children: { ASTNode })
-        local node = new_node("error", children, idx, token_size, err)
-        return node, token_size
-    end,
-    comment = function(tokens: { string }, idx: number)
-        -- The entire comment is a single token
-        -- local node = new_node("comment", tokens[idx], idx, 1)
-        return nil, 1
-    end,
-    type_literal = function(tokens: { string }, idx: number)
-        local node = new_node("type_literal", tokens[idx], idx, 1)
-        return node, 1
-    end,
-    string_literal = function(tokens: { string }, idx: number)
-        return new_node("string_literal", tokens[idx + 1], idx, 3), 3
-    end,
-	number_literal = function(tokens: { string }, idx: number)
-		local n = tonumber(tokens[idx])
-		if typeof(n) == "number" then
-			local primitive
-			if n % 1 == 0 then
-				primitive = "f64"
-			else
-				primitive = "i32"
-			end
-			return new_node("number_literal", n, idx, 1, primitive), 1
+local function root(tokens: { string }, idx)
+	local children, consumed = parse_chunk(tokens, 1)
+	local node = new_node("root", children, 1, consumed) :: ASTRoot
+	return node, consumed
+end
+local function error(tokens: { string }, idx: number, err: string, size: number)
+	local node = new_node("error", tokens[idx], idx, size, err) :: ASTError
+	return node, size
+end
+local function error_with_children(tokens: { string }, idx: number, err: string, token_size: number, children: { ASTNode })
+	local node = new_node("error", children, idx, token_size, err)
+	return node, token_size
+end
+local function error_with_unparsed_children(tokens: { string }, idx: number, err: string)
+	local children, consumed = parse_chunk(tokens, idx + 1)
+	local consumed_total = consumed + 1
+	local node, _ = error_with_children(tokens, idx, err, consumed_total, children)
+	return node, consumed_total
+end
+local function comment(tokens: { string }, idx: number)
+	-- The entire comment is a single token
+	-- local node = new_node("comment", tokens[idx], idx, 1)
+	return nil, 1
+end
+local function type_literal(tokens: { string }, idx: number)
+	local node = new_node("type_literal", tokens[idx], idx, 1)
+	return node, 1
+end
+local function string_literal(tokens: { string }, idx: number)
+	return new_node("string_literal", tokens[idx + 1], idx, 3), 3
+end
+local function number_literal(tokens: { string }, idx: number)
+	local n = tonumber(tokens[idx])
+	if typeof(n) == "number" then
+		local primitive
+		if n % 1 == 0 then
+			primitive = "f64"
 		else
-			return NodeConstructors.error(tokens, idx, "Internal error: passed non-number to number_literal", 1)
+			primitive = "i32"
 		end
-	end,
-	string = function(tokens: { string }, idx: number)
-		return new_node("string", false, idx, 1), 1
-	end,
-    enum = function(tokens: { string }, idx: number)
-        local children, consumed = parse_chunk(tokens, idx + 1)
-        local consumed_total = consumed + 1
+		return new_node("number_literal", n, idx, 1, primitive), 1
+	else
+		return error(tokens, idx, "Internal error: passed non-number to number_literal", 1)
+	end
+end
+local function _string(tokens: { string }, idx: number)
+	return new_node("string", false, idx, 1), 1
+end
+local function enum(tokens: { string }, idx: number)
+	local children, consumed = parse_chunk(tokens, idx + 1)
+	local consumed_total = consumed + 1
 
-        for i,v in children do
-            if v.Type ~= "string_literal" then
-                local err, _ = NodeConstructors.error(tokens, v.Index, `Unexpected {v.Value}, enum can only contain string literals`, v.TokenSize)
-                children[i] = err
-            end
-        end
+	for i,v in children do
+		if v.Type ~= "string_literal" then
+			local err, _ = error(tokens, v.Index, `Unexpected {v.Value}, enum can only contain string literals`, v.TokenSize)
+			children[i] = err
+		end
+	end
 
-        -- Specifies the size of the numbers stored in the buffer, not the length
-        -- table.insert(children, new_node("size_specifier", #children, -1, 0))
+	-- Specifies the size of the numbers stored in the buffer, not the length
+	-- table.insert(children, new_node("size_specifier", #children, -1, 0))
 
-        return new_node("enum", children, idx, consumed_total), consumed_total
-    end,
-    array = function(tokens: { string }, idx: number)
-        local children, consumed = parse_chunk(tokens, idx + 1)
-        local consumed_total = consumed + 1
+	return new_node("enum", children, idx, consumed_total), consumed_total
+end
+local function array(tokens: { string }, idx: number)
+	local children, consumed = parse_chunk(tokens, idx + 1)
+	local consumed_total = consumed + 1
 
-        for i,v in children do
-            if not v:IsRootConstruct() then
-                if v.Type ~= "error" then
-                    local err, _ = NodeConstructors.error(tokens, v.Index, `Unexpected {v.Value}, array can only contain read/write constructs`, v.TokenSize)
-                    children[i] = err
-                end
-            end
-        end
-
-        return new_node("array", children, idx, consumed_total), consumed_total
-    end,
-    periodic_array = function(tokens: { string }, idx: number)
-        local children, consumed = parse_chunk(tokens, idx + 1)
-        local consumed_total = consumed + 1
-
-        for i,v in children do
-            if not v:IsRootConstruct() then
-                if v.Type ~= "error" then
-                    local err, _ = NodeConstructors.error(tokens, v.Index, `Unexpected {v.Value}, array can only contain read/write constructs`, v.TokenSize)
-                    children[i] = err
-                end
-            end
-        end
-
-
-        -- Move the size specifier to be the last child
-        -- table.remove(children, size_specifier_idx)
-        -- table.insert(children, size_specifier)
-        
-        return new_node("periodic_array", children, idx, consumed_total), consumed_total
-    end,
-	map = function(tokens: { string }, idx: number)
-		local children, consumed = parse_binding_list(tokens, idx + 1)
-		local consumed_total = consumed + 1
-
-		if #children > 1 then
-			for i,v in children do
-				local err, _ = NodeConstructors.error(tokens, v.Index, "map can only have one binding", v.TokenSize)
+	for i,v in children do
+		if not v:IsRootConstruct() then
+			if v.Type ~= "error" then
+				local err, _ = error(tokens, v.Index, `Unexpected {v.Value}, array can only contain read/write constructs`, v.TokenSize)
 				children[i] = err
 			end
 		end
+	end
 
-		if children[1].Type ~= "binding" then
-			return NodeConstructors.error(tokens, idx, "map must contain a type binding", consumed_total)
+	return new_node("array", children, idx, consumed_total), consumed_total
+end
+local function periodic_array(tokens: { string }, idx: number)
+	local children, consumed = parse_chunk(tokens, idx + 1)
+	local consumed_total = consumed + 1
+
+	for i,v in children do
+		if not v:IsRootConstruct() then
+			if v.Type ~= "error" then
+				local err, _ = error(tokens, v.Index, `Unexpected {v.Value}, array can only contain read/write constructs`, v.TokenSize)
+				children[i] = err
+			end
 		end
+	end
 
-		return new_node("map", children, idx, consumed_total), consumed_total
-	end,
-	struct = function(tokens: { string }, idx: number)
-		local children, consumed = parse_binding_list(tokens, idx + 1)
-		local consumed_total = consumed + 1
+	return new_node("periodic_array", children, idx, consumed_total), consumed_total
+end
+local function map(tokens: { string }, idx: number)
+	local children, consumed = parse_binding_list(tokens, idx + 1)
+	local consumed_total = consumed + 1
 
+	if #children > 1 then
 		for i,v in children do
-			if v.Type ~= "binding" then
-				local err, _ = NodeConstructors.error(tokens, v.Index, "dictionaries can only contain bindings", v.TokenSize)
-				children[i] = err
-			end
+			local err, _ = error(tokens, v.Index, "map can only have one binding", v.TokenSize)
+			children[i] = err
 		end
+	end
 
-		return new_node("struct", children, idx, consumed_total), consumed_total
-	end,
-    vector3 = function(tokens: { string }, idx: number)
-        local children, consumed = parse_chunk(tokens, idx + 1)
-        local consumed_total = consumed + 1
+	if children[1].Type ~= "binding" then
+		return error(tokens, idx, "map must contain a type binding", consumed_total)
+	end
 
-        local is_ok = #children == 3
-        for i,v in children do
-            if v.Type ~= "type_literal" then
-                is_ok = false
-                break
-            end
-        end
+	return new_node("map", children, idx, consumed_total), consumed_total
+end
+local function struct(tokens: { string }, idx: number)
+	local children, consumed = parse_binding_list(tokens, idx + 1)
+	local consumed_total = consumed + 1
 
-        if not is_ok then
-            return NodeConstructors.error(tokens, idx, "vector3 expects 3 type literals", consumed_total)
-        end
-        
-        return new_node("vector3", children, idx, consumed_total), consumed_total
-    end,
-    size_specifier = function(tokens: { string }, idx: number)
-        local seperator = tokens[idx + 1]
-        local size = tonumber(tokens[idx + 2])
+	for i,v in children do
+		if v.Type ~= "binding" then
+			local err, _ = error(tokens, v.Index, "dictionaries can only contain bindings", v.TokenSize)
+			children[i] = err
+		end
+	end
 
-        if not is_separator(seperator) then
-            return NodeConstructors.error(tokens, idx, "Missing seperator for size specifier", 2)
-        end
+	return new_node("struct", children, idx, consumed_total), consumed_total
+end
+local function vector3(tokens: { string }, idx: number)
+	local children, consumed = parse_chunk(tokens, idx + 1)
+	local consumed_total = consumed + 1
 
-        if not size then
-            return NodeConstructors.error(tokens, idx, "Expected number for size specifier", 3)
-        end
-        
-        return new_node("size_specifier", size, idx, 3), 3
-    end,
-    max_size = function(tokens: { string }, idx: number)
-        return NodeConstructors.size_specifier(tokens, idx)
-    end,
-    binding = function(tokens: { string }, idx: number, children: { ASTNode }, token_size: number)
-        return new_node("binding", children, idx, token_size), token_size
-    end,
-    i8= function(tokens: { string }, idx: number)
-        return NodeConstructors.type_literal(tokens, idx)
-    end,
-    i16= function(tokens: { string }, idx: number)
-        return NodeConstructors.type_literal(tokens, idx)
-    end,
-    i32= function(tokens: { string }, idx: number)
-        return NodeConstructors.type_literal(tokens, idx)
-    end,
-    u8= function(tokens: { string }, idx: number)
-        return NodeConstructors.type_literal(tokens, idx)
-    end,
-    u16= function(tokens: { string }, idx: number)
-        return NodeConstructors.type_literal(tokens, idx)
-    end,
-    u32= function(tokens: { string }, idx: number)
-        return NodeConstructors.type_literal(tokens, idx)
-    end,
-    f8= function(tokens: { string }, idx: number)
-        return NodeConstructors.type_literal(tokens, idx)
-    end,
-    f16= function(tokens: { string }, idx: number)
-        return NodeConstructors.type_literal(tokens, idx)
-    end,
-    f32= function(tokens: { string }, idx: number)
-        return NodeConstructors.type_literal(tokens, idx)
-    end,
-    f64= function(tokens: { string }, idx: number)
-        return NodeConstructors.type_literal(tokens, idx)
-    end,
+	local is_ok = #children == 3
+	for i,v in children do
+		if v.Type ~= "type_literal" then
+			is_ok = false
+			break
+		end
+	end
+
+	if not is_ok then
+		return error(tokens, idx, "vector3 expects 3 type literals", consumed_total)
+	end
+	
+	return new_node("vector3", children, idx, consumed_total), consumed_total
+end
+local function size_specifier(tokens: { string }, idx: number)
+	local seperator = tokens[idx + 1]
+	local size = tonumber(tokens[idx + 2])
+
+	if not is_separator(seperator) then
+		return error(tokens, idx, "Missing seperator for size specifier", 2)
+	end
+
+	if not size then
+		return error(tokens, idx, "Expected number for size specifier", 3)
+	end
+	
+	return new_node("size_specifier", size, idx, 3), 3
+end
+local function max_size(tokens: { string }, idx: number)
+	return size_specifier(tokens, idx)
+end
+local function binding(tokens: { string }, idx: number, children: { ASTNode }, token_size: number)
+	return new_node("binding", children, idx, token_size), token_size
+end
+local function i8(tokens: { string }, idx: number)
+	return type_literal(tokens, idx)
+end
+local function i16(tokens: { string }, idx: number)
+	return type_literal(tokens, idx)
+end
+local function i32(tokens: { string }, idx: number)
+	return type_literal(tokens, idx)
+end
+local function u8(tokens: { string }, idx: number)
+	return type_literal(tokens, idx)
+end
+local function u16(tokens: { string }, idx: number)
+	return type_literal(tokens, idx)
+end
+local function u32(tokens: { string }, idx: number)
+	return type_literal(tokens, idx)
+end
+local function f8(tokens: { string }, idx: number)
+	return type_literal(tokens, idx)
+end
+local function f16(tokens: { string }, idx: number)
+	return type_literal(tokens, idx)
+end
+local function f32(tokens: { string }, idx: number)
+	return type_literal(tokens, idx)
+end
+local function f64(tokens: { string }, idx: number)
+	return type_literal(tokens, idx)
+end
+
+NodeConstructors = {
+	root = root,
+	error = error,
+	error_with_unparsed_children = error_with_unparsed_children,
+	error_with_children = error_with_children,
+	comment = comment,
+	type_literal = type_literal,
+	string_literal = string_literal,
+	number_literal = number_literal,
+	string = _string,
+	enum = enum,
+	array = array,
+	periodic_array = periodic_array,
+	map = map,
+	struct = struct,
+	vector3 = vector3,
+	size_specifier = size_specifier,
+	max_size = max_size,
+	binding = binding,
+	i8 = i8,
+	i16 = i16,
+	i32 = i32,
+	u8 = u8,
+	u16 = u16,
+	u32 = u32,
+	f8 = f8,
+	f16 = f16,
+	f32 = f32,
+	f64 = f64,
 }
-
-NodeConstructors = _NodeConstructors
 
 
 
@@ -681,23 +703,6 @@ NodeConstructors = _NodeConstructors
 
 local Visitor = { }
 Visitor.__index = Visitor
-
-local function new_visitor()
-    local visitor: { [string]: ((any, ASTNode) -> (any)) | false | any} = {
-        root = false,
-        error = false,
-        error_with_children = false,
-        comment = false,
-        type_literal = false,
-        indexer = false,
-        list = false,
-        vector3 = false,
-    }
-
-    setmetatable(visitor, Visitor)
-
-    return visitor
-end
 
 local function Visit(self: Visitor, node: ASTNode)
     local ty = node.Type

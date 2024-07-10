@@ -138,18 +138,6 @@ local type_literal_sizes = {
     f64 = 8,
 }
 
-
-local terminals = {
-    "i8",
-    "i16",
-    "i32",
-    "u8",
-    "u16",
-    "u32",
-    "f32",
-    "f64",
-}
-
 local terminal_to_idx = {
     i8 = 1,
     i16 = 2,
@@ -160,14 +148,6 @@ local terminal_to_idx = {
     f32 = 7,
     f64 = 8,
 }
-
-local nonterminals = {
-    "vector3",
-    "list",
-    "array",
-    "dict"
-}
-
 
 local writers, readers
 local function w_i8(v: number, b: buffer, idx: number)
@@ -201,10 +181,6 @@ end
 local function w_f64(v: number, b: buffer, idx: number)
     buffer.writef64(b, idx, v)
     return 8
-end
-local function w_str(v: string, b: buffer, idx: number)
-    buffer.writestring(b, idx, v)
-    return string.len(v)
 end
 
 
@@ -498,11 +474,11 @@ end
 local _NodeConstructors: { ({ string }, idx: number, ...any) -> (ASTNode, number) } = {
     root = function(tokens: { string }, idx)
         local children, consumed = parse_chunk(tokens, 1)
-        local node = new_node("root", children, 1, consumed)
+        local node = new_node("root", children, 1, consumed) :: ASTRoot
         return node, consumed
     end,
     error = function(tokens: { string }, idx: number, err: string, size: number)
-        local node = new_node("error", tokens[idx], idx, size, err)
+        local node = new_node("error", tokens[idx], idx, size, err) :: ASTError
         return node, size
     end,
     error_with_unparsed_children = function(tokens: { string }, idx: number, err: string)
@@ -660,7 +636,7 @@ local _NodeConstructors: { ({ string }, idx: number, ...any) -> (ASTNode, number
     max_size = function(tokens: { string }, idx: number)
         return NodeConstructors.size_specifier(tokens, idx)
     end,
-    binding = function(tokens: { string }, idx: number, children: { ASTNode }, token_size: number): (ASTBinding, number)
+    binding = function(tokens: { string }, idx: number, children: { ASTNode }, token_size: number)
         return new_node("binding", children, idx, token_size), token_size
     end,
     i8= function(tokens: { string }, idx: number)
@@ -1194,7 +1170,6 @@ local SerializeVisitor: Visitor = {
     end,
     array = function(self, node: ASTArray)
         local fns = self:CollectChildren(node)
-        local len = #fns
 
         local function f(t: { }, b: buffer, idx: number)
             local s = 0
@@ -1259,7 +1234,7 @@ local SerializeVisitor: Visitor = {
 	end,
 	struct = function(self, node: ASTStruct)
 		local children = self:CollectChildren(node)
-		local struct_len = #children
+
 		local ast_children = node.Value
 		local child_map = { }
 		for i,v in ast_children do
@@ -1508,7 +1483,6 @@ end
 
 local function compile_serdes_str(str)
     local ast = str_to_ast(str)
-    ast:Accept(PrintVisitor)
     local serializer = ast:Accept(SerializeVisitor)
     local deserializer = ast:Accept(DeserializeVisitor)
 
@@ -1693,59 +1667,6 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			T.Equal, t.two, 2
 		)
 	end)
-end
-
-function mod.__init(G: LMT.LMGame, T: LMT.Tester)
---[[     local basic_test = [[
-            vector3(i8, i16, u32),
-            array(
-                i8, f32
-            ),
-            periodic_array(
-                max_size: 32,
-                i8, f32
-            )
-            enum(
-                # May contain multiple or no instances of each entry, of arbitrary length
-                "",
-                "a a",
-                "b",
-                "c"
-            ),
-            enum_map(
-                "stat1": u8,
-                "stat2": "asdf",
-                vector3(1, 1, 2): f32
-            )
-    ]]
-
---[[     local serializer, deserializer, ast2 = compile_serdes_str(basic_test)
-    local ser2 = serializer(
-        Vector3.new(1, 2, 3),
-        { 2, 2.35, 9, 9.2 },
-        { 1, 1, 1 },
-        { "a a", "b" }
-    )
-    print(deserializer(ser2))  ]]
-
-    -- local s1, d1, ast1 = compile_serdes_str(nesteds_test)
-    -- ast1:Accept(PrintVisitor)
-    -- local serial = s1(1, {2, 3}, Vector3.new(4, 5, 6))
-    -- print(d1(serial))
-
-
-    -- local s3, d3, ast3 = compile_serdes_str(nested_list_test)
-    -- local ser3 = s3({ {1, 3, 3}, {4, 5, 6}, {7, 8, 9}})
-    -- print(d3(ser3))
-
-    --[[
-        arrays are fixed size
-        periodic_array is variable but must be a whole multiplier of the prototype size
-        map will store one type to another type, they are periodic
-        enum condenses a list of strings into numbers, it can contain 0 or more instances of each entry
-        enum_map will condense indexers (type literals) into numbers and store their corresponding values
-        dict will store a dictionary of type literals to their corresponding values
-    ]]
 end
 
 

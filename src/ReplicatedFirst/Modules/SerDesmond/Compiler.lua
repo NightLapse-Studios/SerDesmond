@@ -284,17 +284,6 @@ local function read_size_specifier(b: buffer, idx: number)
     return bit32.extract(dat, 0, bits - 2), bytes
 end
 
-local function bits_to_store_size_specifier(n: number)
-    return 2 + math.log(n, 2)
-end
-local function bytes_to_store_size_specifier(n: number)
-    return math.max(math.ceil(bits_to_store_size_specifier(n) / 8))
-end
-
-local function bytes_to_store_type(t: string)
-    return type_literal_sizes[t]
-end
-
 local function count_table_keys(t: { })
 	local i = 0
 	for _, _ in t do

@@ -5,7 +5,7 @@ print("\n\t\t\tCOLLECT\n")
 -- local Secrets = pcall(require, game.ServerScriptService.Secrets)
 local safe_require = require(game.ReplicatedFirst.Lib.SafeRequire).require
 
-local Game, lm_error, traceback =  safe_require(game.ReplicatedFirst.Shared.LazyModules.Game)
+local Game, lm_error, traceback =  safe_require(game.ReplicatedFirst.Lib.LazyModules.Game)
 
 if lm_error then
 	-- Secrets.SendPanicReport(traceback, "Error during server startup")

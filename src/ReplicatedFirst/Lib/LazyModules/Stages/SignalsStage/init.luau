@@ -36,9 +36,11 @@ local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local IsServer = game:GetService("RunService"):IsServer()
 
 local CONTEXT = IsServer and "SERVER" or "CLIENT"
-local WAIT_LIMIT = 4
+local STAGE_NAME = "__build_signals"
+local STAGE_PRIORITY = 1000
 
 local SparseList = require(ReplicatedFirst.Lib.SparseList)
+local Config = require(game.ReplicatedFirst.Config)
 
 --event abstraction modules
 local Transmitter = require(script.Transmitter)
@@ -105,6 +107,21 @@ export type SignalAPI = typeof(SignalAPI)
 
 
 
+local function run_module_stage(game, fn, mod_name: string)
+	SignalAPI:SetModule(mod_name)
+	fn(game, SignalAPI)
+end
+
+local function stage_finished_callback(game)
+	mod.BuildSignals(game)
+end
+
+function mod.GiveLM(lm)
+	lm.RegisterModuleStage(STAGE_NAME, STAGE_PRIORITY, run_module_stage, stage_finished_callback)
+end
+
+
+
 function SignalAPI.SetModule(self: SignalAPI, module_name: string )
 	assert(typeof(module_name) == "string")
 
@@ -128,6 +145,10 @@ function mod.Monitor( ... )
 end
 
 
+-- In practice, the number 32 appears to be able to be 1
+-- But I have a gut feeling that it's possible to validly use LazyModules but have delayed signals declared
+local WAIT_LIMIT = 4
+
 local function wait_for(async_table)
 	local waited = 0
 	while
@@ -147,6 +168,7 @@ local function wait_for(async_table)
 	return waited
 end
 
+-- TODO: Many safety checks require some meta-communication with the server. eeeeghhh
 function mod.BuildSignals(G: any)
 	-- The exact form of dependency injection we want to eradicate
 	local remote_wrapper = require(script.__remote_wrapper)
@@ -217,7 +239,7 @@ function mod.BuildSignals(G: any)
 		end
 	end
 
-	if G.Config.MonitorAllSignals then
+	if Config.MonitorAllSignals then
 		for module, identifers in Transmitters.Modules.provided do
 			for _, event in identifers do
 				__monitor(event)

@@ -1,7 +1,7 @@
 --!strict
 
-local is_separator = require(script.Parent.is_separator)
-local Tokenizer = require(script.Parent.Tokenizer)
+local is_separator = require(script.is_separator)
+local Tokenizer = require(script.Tokenizer)
 
 local mod = { }
 
@@ -1506,5 +1506,8 @@ end
 function mod.PrettyCompile(str)
 	return pretty_compile(str)
 end
+
+mod.write_size_specifier = write_size_specifier
+mod.read_size_specifier = read_size_specifier
 
 return mod

@@ -4,7 +4,7 @@ local IsStudio = RunService:IsStudio()
 
 local Config = { }
 
-Config.PlaceId = 8256020164
+Config.PlaceId = 17373496574
 Config.TestPlaceId = 13489727259
 
 -- Set up ContextVar for StdLib
@@ -94,7 +94,7 @@ Config.Gravity = Vector3.new(0, -32.2, 0)-- Bullets
 -- Run lazymodules tests stage
 Config.TESTING = true
 -- Optional string, a module name
-Config.FocusTestOn = false
+Config.FocusTestOn = "SerDesmondTests"
 
 -- The `Load` tree
 Config.LogLoads = false
@@ -126,19 +126,16 @@ Config.ModuleCollectionFolders = {
     if RunService:IsServer() then game.ServerScriptService else game.StarterPlayer.StarterPlayerScripts
 }
 Config.ModuleCollectionBlacklist = {
-    game.ReplicatedFirst.Shared.LazyModules,
-    game.ReplicatedFirst.Lib:FindFirstChild("Pumpkin"),
+    game.ReplicatedFirst.Lib.LazyModules,
     Server = {
-        game.ReplicatedFirst.Lib:FindFirstChild("UserInput")
+
     },
     Client = {
-        
+		game.StarterPlayer.StarterPlayerScripts:WaitForChild("PlayerModule")
     }
 }
 
--- You should really know what you're doing if you change this
--- Can be "Minimal", "Base", or "Full"
-Config.ReleaseType = "Minimal"
+Config.ReleaseType = "minimal"
 
 
 
@@ -151,6 +148,6 @@ Config.ReleaseType = "Minimal"
 -- Debug hooks features for adjusting values at runtime from DebugMenu
 Config.VolumeOverrides = ContextVar(false, true, false, false)
 
-Config.SaveDatastoresInStudio = false
+Config.SaveDatastoresInStudio = true
 
 return Config

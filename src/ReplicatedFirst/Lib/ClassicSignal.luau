@@ -29,10 +29,14 @@ function Signal.new()
 	return setmetatable({
 		_connections = {},
 		_threads = {},
+		
+		FireCount = 0,
 	}, Signal)
 end
 
 function Signal:Fire(...)
+	self.FireCount += 1
+	
 	for _, connection in pairs(self._connections) do
 		task.spawn(connection._handler, ...)
 	end
@@ -40,7 +44,7 @@ function Signal:Fire(...)
 	for _, thread in pairs(self._threads) do
 		coroutine.resume(thread, ...)
 	end
-	
+
 	self._threads = {}
 end
 
@@ -50,9 +54,29 @@ function Signal:Connect(handler)
 	return connection
 end
 
-function Signal:Wait()
-	table.insert(self._threads, coroutine.running())
-	return coroutine.yield()
+function Signal:Wait(timeout)
+	if timeout then
+		local signal = Signal.new()
+		local conn = nil
+		conn = self:Connect(function(...)
+			conn:Disconnect()
+			conn = nil
+			signal:Fire(...)
+		end)
+	
+		task.delay(timeout, function()
+			if (conn ~= nil) then
+				conn:Disconnect()
+				conn = nil
+				signal:Fire(nil)
+			end
+		end)
+	
+		return signal:Wait()
+	else
+		table.insert(self._threads, coroutine.running())
+		return coroutine.yield()
+	end
 end
 
 return Signal

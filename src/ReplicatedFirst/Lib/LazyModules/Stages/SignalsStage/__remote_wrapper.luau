@@ -4,6 +4,10 @@ local IsServer = game:GetService("RunService"):IsServer()
 local mod = { }
 
 local Game
+function mod.GiveGame(G)
+	Game = G
+end
+
 
 local RemoteEventClass = {}
 RemoteEventClass.__index = RemoteEventClass
@@ -39,7 +43,7 @@ function mod.wrapper<T>(identifier: string, builder_mt: T)
 		
 		transmitter = setmetatable(
 			{
-				RemoteEventClass.new(remoteEvent),
+				Event = RemoteEventClass.new(remoteEvent),
 				Configured = {
 					Server = false,
 					Client = false,
@@ -58,7 +62,7 @@ function mod.wrapper<T>(identifier: string, builder_mt: T)
 		
 		transmitter = setmetatable(
 			{
-				event,
+				Event = { Event = event },
 				Configured = {
 					Server = false,
 					Client = false,
@@ -70,10 +74,6 @@ function mod.wrapper<T>(identifier: string, builder_mt: T)
 	end
 
 	return transmitter
-end
-
-function mod.GiveGame(G)
-	Game = G
 end
 
 return mod

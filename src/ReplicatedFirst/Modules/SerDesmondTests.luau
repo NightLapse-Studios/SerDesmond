@@ -63,6 +63,9 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
     local enum_str = [[
         enum("asd", "asdf", "asdfg")
     ]]
+	local general_types_str = [[
+		
+	]]
 
     local _, struct = pcall(function()
         return SerDesmond.PrettyCompile(struct_str)
@@ -91,10 +94,10 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 		local buf1 = buffer.create(4)
 		local buf2 = buffer.create(4)
 		local buf3 = buffer.create(4)
-		write_size_specifier(min_size, buf1, 0)
-		write_size_specifier(63, buf1, 1)
-		write_size_specifier(64, buf1, 2)
-		write_size_specifier(max_size, buf2, 0)
+		SerDesmond.write_size_specifier(min_size, buf1, 0)
+		SerDesmond.write_size_specifier(63, buf1, 1)
+		SerDesmond.write_size_specifier(64, buf1, 2)
+		SerDesmond.write_size_specifier(max_size, buf2, 0)
 
 		T:ForContext("writing",
 			--						  [s=1 v=1][s=1 v=63][   s=2 v=64    ]
@@ -107,19 +110,19 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 
 		local full_buf = buffer.create(4)
 		-- Fill with 1s
-		write_size_specifier(2^30-1, full_buf, 0)
+		SerDesmond.write_size_specifier(2^30-1, full_buf, 0)
 		-- overwrite 2nd byte
-		write_size_specifier(1, full_buf, 1)
+		SerDesmond.write_size_specifier(1, full_buf, 1)
 
 		T:ForContext("written size",
 			T.Equal, dump_bits(full_buf), "11111111 00000001 11111111 11111111"
 		)
 
 		T:ForContext("reading",
-			T.Equal, read_size_specifier(buf1, 0), 1,
-			T.Equal, read_size_specifier(buf1, 1), 63,
-			T.Equal, read_size_specifier(buf1, 2), 64,
-			T.Equal, read_size_specifier(buf2, 0), 2^30 - 1
+			T.Equal, SerDesmond.read_size_specifier(buf1, 0), 1,
+			T.Equal, SerDesmond.read_size_specifier(buf1, 1), 63,
+			T.Equal, SerDesmond.read_size_specifier(buf1, 2), 64,
+			T.Equal, SerDesmond.read_size_specifier(buf2, 0), 2^30 - 1
 		)
 	end)
     T:Test("Compile junk", function()

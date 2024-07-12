@@ -3,14 +3,22 @@
 	Loads a set of modules, places their API exports in the Game object on __init
 ]]
 
-local Config = require(game.ReplicatedFirst.Lib.Config)
+local Config = require(game.ReplicatedFirst.Config)
+
+local Enums = game.ReplicatedFirst.Lib:FindFirstChild("Enums")
+local Meta = game.ReplicatedFirst.Lib:FindFirstChild("Meta")
+local Debug = game.ReplicatedFirst.Lib:FindFirstChild("Debug")
+local DebugMenu = game.ReplicatedFirst.Lib:FindFirstChild("DebugMenu")
+local Maskables = game.ReplicatedFirst.Lib:FindFirstChild("Maskables")
 
 local mod = { }
 local Libs = {
-	Enums = require(game.ReplicatedFirst.Lib.Enums),
-	Meta = require(game.ReplicatedFirst.Lib.Meta),
-	Maskables = require(game.ReplicatedFirst.Lib.Maskables),
-	Config = require(game.ReplicatedFirst.Lib.Config),
+	Enums = if Enums then require(Enums) else nil,
+	Meta = if Meta then require(Meta) else nil,
+	Debug = if Debug then require(Debug) else nil,
+	DebugMenu = if DebugMenu then require(DebugMenu) else nil,
+	Maskables = if Maskables then require(Maskables) else nil,
+	Config = require(game.ReplicatedFirst.Config),
 }
 
 local Game
@@ -30,10 +38,6 @@ end
 
 local APIUtils = require(game.ReplicatedFirst.Lib.APIUtils)
 local exports = APIUtils.EXPORT_LIST(Libs)
-	:ADD("Enums")
-	:ADD("Meta")
-	:ADD("Maskables")
-	:ADD("Config")
 	:ADD("empty_table", { })
 	:ADD("no_op_func", function() end)
 	:ADD("ContextVar", Config.ContextVar)
@@ -41,6 +45,10 @@ local exports = APIUtils.EXPORT_LIST(Libs)
 	:ADD("IsMobile", Config.PlatformVar(false, true))
 	:ADD("print_s", print_s)
 	:ADD("print_c", print_c)
+
+for i,v in Libs do
+	exports:ADD(i, v)
+end
 
 if game:GetService("RunService"):IsClient() then
 	-- These are unreliable if the screen changes size, but they work in a quick pinch.

@@ -1,6 +1,5 @@
 --!strict
-local LazyModules = require(game.ReplicatedFirst.Shared.LazyModules)
-local Config = require(game.ReplicatedFirst.Lib.Config)
+local LazyModules = require(game.ReplicatedFirst.Lib.LazyModules.Main)
 
 local Game = LazyModules.newGame()
 
@@ -8,6 +7,7 @@ local Game = LazyModules.newGame()
 -- Generally these are exposed for rapid debug development and proper requires should be preferred
 local StdLib = require(game.ReplicatedFirst.Lib.StdLib)
 StdLib.LoadExports(Game)
+
 
 _G.Game = Game
 Game:CollectModules()
@@ -25,7 +25,7 @@ else
 	-- Register modules which have player-based data that will be fed into datastores as well as transmitted to clients
 	-- Data synced this way will be available by _G.Game[plr][<module_name>]
 
-	if Config.ReleaseType == "Full" then
+	if Game.Config.ReleaseType == "full" then
 		local Players = require(game.ReplicatedFirst.Modules.Players)
 		Players.RegisterPlayerDataModule("Stats")
 	end

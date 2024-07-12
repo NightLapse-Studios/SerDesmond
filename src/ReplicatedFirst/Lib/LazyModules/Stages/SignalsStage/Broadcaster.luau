@@ -27,7 +27,7 @@ local Broadcasters = mod.Broadcasters
 
 --local INIT_CONTEXT = if game:GetService("RunService"):IsServer()  then "SERVER" else "CLIENT"
 
-local ClassicSignal = require(game.ReplicatedFirst.Shared.LazyModules.Signals.ClassicSignal)
+local ClassicSignal = require(game.ReplicatedFirst.Lib.ClassicSignal)
 
 local IsServer = game:GetService("RunService"):IsServer()
 
@@ -70,21 +70,20 @@ local BroadcastBuilder = {
 
 	Build = function(self)
 		if IsServer then
-			self[1].Event.OnServerEvent:Connect(function(plr, ...)
+			self.Event.Event.OnServerEvent:Connect(function(plr, ...)
 				local should_accept = self.__ShouldAccept(plr, ...)
 
 				if should_accept then
-					print(debug.traceback())
 					self[2]:Fire(plr, ...)
 
 					for i,v in game.Players:GetPlayers() do
 						if v == plr then continue end
-						self[1]:FireClient(v, plr, ...)
+						self.Event:FireClient(v, plr, ...)
 					end
 				end
 			end)
 		else
-			self[1].Event.OnClientEvent:Connect(function(plr, ...)
+			self.Event.Event.OnClientEvent:Connect(function(plr, ...)
 				self[2]:Fire(plr, ...)
 			end)
 		end
@@ -97,7 +96,7 @@ local BroadcasterClient = {
 			self.monitor(self, ...)
 		end
 
-		self[1].Event:FireServer(...)
+		self.Event.Event:FireServer(...)
 	end
 }
 local BroadcasterServer = {
@@ -107,7 +106,7 @@ local BroadcasterServer = {
 		end
 
 		self[2]:Fire(nil, ...)
-		self[1].Event:FireAllClients(nil, ...)
+		self.Event.Event:FireAllClients(nil, ...)
 	end,
 	BroadcastLikePlayer = function(self, plr, ...)
 		if self.monitor then
@@ -115,7 +114,7 @@ local BroadcasterServer = {
 		end
 
 		self[2]:Fire(plr, ...)
-		self[1].Event:FireAllClients(plr, ...)
+		self.Event.Event:FireAllClients(plr, ...)
 	end,
 }
 

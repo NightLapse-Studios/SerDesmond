@@ -13,114 +13,260 @@ type u16_literal = "u16"
 type u32_literal = "u32"
 type f32_literal = "f32"
 type f64_literal = "f64"
-type TypeLiteral =  i8_literal | i16_literal | i32_literal |
+type PrimitiveLiterals =  i8_literal | i16_literal | i32_literal |
                     u8_literal | u16_literal | u32_literal |
                     f32_literal | f64_literal
 
-type ASTCommon = {
+type ASTParseRoot = {
+    Type: "root",
+    Value: ASTParseChildren,
+    Extra: false,
     TokenIndex: number,
     TokenSize: number
 }
-type ASTRoot = {
-    Type: "root",
-    Value: ASTChildren,
-    Extra: false
-} & ASTCommon
-type ASTError = {
+type ASTParseError = {
     Type: "error",
-    Value: string,
-    Extra: string
-} & ASTCommon
-type ASTErrorWChildren = {
-    Type: "error",
-    Value: ASTChildren,
-    Extra: string
-} & ASTCommon
-type ASTComment = {
+    Value: Token,
+    Extra: string,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTParseErrorWChildren = {
+	Type: "error",
+	Value: ASTParseChildren,
+	Extra: string,
+	TokenIndex: number,
+	TokenSize: number
+}
+type ASTParseComment = {
     Type: "comment",
     Value: string,
-    Extra: false
-} & ASTCommon
-type ASTTypeLiteral = {
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTParseTypeLiteral = {
     Type: "type_literal",
-    Value: TypeLiteral,
-    Extra: false
-} & ASTCommon
-type ASTStringLiteral = {
+    Value: PrimitiveLiterals,
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTParseStringLiteral = {
     Type: "string_literal",
     Value: string,
-    Extra: false
-} & ASTCommon
-type ASTNumberLiteral = {
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTParseNumberLiteral = {
 	Type: "number_literal",
 	Value: number,
-	Extra: TypeLiteral
-} & ASTCommon
-type ASTIdList = {
+	Extra: PrimitiveLiterals,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTParseEnum = {
     Type: "enum",
-    Value: ASTChildren,
-    Extra: false
-} & ASTCommon
-type ASTArray = {
+    Value: { ASTParseStringLiteral | ASTParseError | ASTParseErrorWChildren },
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTParseArray = {
     Type: "array",
-    Value: ASTChildren,
-    Extra: false
-} & ASTCommon
-type ASTPeriodicArray = {
+    Value: ASTParseTerminals,
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTParsePeriodicArray = {
     Type: "periodic_array",
-    Value: ASTChildren,
-    Extra: false
-} & ASTCommon
-type ASTVector3 = {
+    Value: ASTParseTerminals,
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTParseVector3 = {
     Type: "vector3",
-    Value: ASTChildren,
-    Extra: false
-} & ASTCommon
-type ASTSizeSpecifier = {
+    Value: { ASTParseTypeLiteral | ASTParseError | ASTParseErrorWChildren },
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTParseSizeSpecifier = {
     Type: "size_specifier",
     Value: number,
-    Extra: false
-} & ASTCommon
-type ASTBinding = {
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTParseBinding = {
     Type: "binding",
-    Value: ASTChildren,
-    Extra: false
-} & ASTCommon
-type ASTMap = {
+    Value: ASTParseTerminals & { ASTParseError },
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTParseMap = {
 	Type: "map",
-	Value: ASTChildren,
-	Extra: false
-} & ASTCommon
-type ASTString = {
+	Value: { ASTParseBinding },
+	Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTParseString = {
 	Type: "string",
 	Value: unknown,
-	Extra: false
-} & ASTCommon
-type ASTStruct = {
+	Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTParseStruct = {
 	Type: "struct",
-	Value: { ASTBinding },
-	Extra: false
-} & ASTCommon
+	Value: { ASTParseBinding },
+	Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
 
-type ASTChildren = { ASTNode } | { ASTChildren }
-type ASTNode =
-    ASTCommon
-    | ASTRoot
-    | ASTError
-    | ASTErrorWChildren
-    | ASTComment
-    | ASTTypeLiteral
-    | ASTStringLiteral
-	| ASTNumberLiteral
-    | ASTIdList
-    | ASTArray
-    | ASTPeriodicArray
-    | ASTVector3
-    | ASTSizeSpecifier
-    | ASTBinding
-	| ASTMap
-	| ASTString
-	| ASTStruct
+type ASTParseChildren = { ASTParseNodes }
+type ASTParseTerminal = ASTParseTypeLiteral | ASTParseStringLiteral | ASTParseNumberLiteral | ASTParseString | ASTParseError
+type ASTParseTerminals = { ASTParseTerminal | ASTParseError | ASTParseErrorWChildren }
+type ASTParseNodes = 
+      ASTParseError
+	| ASTParseErrorWChildren
+    | ASTParseComment
+    | ASTParseTypeLiteral
+    | ASTParseStringLiteral
+	| ASTParseNumberLiteral
+    | ASTParseEnum
+    | ASTParseArray
+    | ASTParsePeriodicArray
+    | ASTParseVector3
+    | ASTParseSizeSpecifier
+    | ASTParseBinding
+	| ASTParseMap
+	| ASTParseString
+	| ASTParseStruct
+
+
+type ASTValidRoot = {
+    Type: "root",
+    Value: ASTValidChildren,
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTValidComment = {
+    Type: "comment",
+    Value: string,
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTValidTypeLiteral = {
+    Type: "type_literal",
+    Value: PrimitiveLiterals,
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTValidStringLiteral = {
+    Type: "string_literal",
+    Value: string,
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTValidNumberLiteral = {
+	Type: "number_literal",
+	Value: number,
+	Extra: PrimitiveLiterals,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTValidEnum = {
+    Type: "enum",
+    Value: { ASTValidStringLiteral },
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTValidArray = {
+    Type: "array",
+    Value: ASTValidTerminals,
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTValidPeriodicArray = {
+    Type: "periodic_array",
+    Value: ASTValidTerminals,
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTValidVector3 = {
+    Type: "vector3",
+    Value: { ASTValidTypeLiteral },
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTValidSizeSpecifier = {
+    Type: "size_specifier",
+    Value: number,
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTValidBinding = {
+    Type: "binding",
+    Value: ASTValidTerminals,
+    Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTValidMap = {
+	Type: "map",
+	Value: { ASTValidBinding },
+	Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTValidString = {
+	Type: "string",
+	Value: unknown,
+	Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+type ASTValidStruct = {
+	Type: "struct",
+	Value: { ASTValidBinding },
+	Extra: false,
+    TokenIndex: number,
+    TokenSize: number
+}
+
+type ASTValidChildren = { ASTValidNodes }
+type ASTValidTerminal = ASTParseTypeLiteral | ASTParseStringLiteral | ASTParseNumberLiteral | ASTParseString
+type ASTValidTerminals = { ASTValidTerminal }
+type ASTValidNodes = 
+      ASTValidComment
+    | ASTValidTypeLiteral
+    | ASTValidStringLiteral
+    | ASTValidNumberLiteral
+    | ASTValidEnum
+    | ASTValidArray
+    | ASTValidPeriodicArray
+    | ASTValidVector3
+    | ASTValidSizeSpecifier
+    | ASTValidBinding
+    | ASTValidMap
+    | ASTValidString
+    | ASTValidStruct
 
 
 --[[
@@ -149,7 +295,6 @@ local terminal_to_idx = {
     f64 = 8,
 }
 
-local writers, readers
 local function w_i8(v: number, b: buffer, idx: number)
     buffer.writei8(b, idx, v)
     return 1
@@ -184,38 +329,38 @@ local function w_f64(v: number, b: buffer, idx: number)
 end
 
 
-local function r_i8(b: buffer, idx: number)
+local function r_i8(b: buffer, idx: number): (number, number)
     return buffer.readi8(b, idx), 1
 end
-local function r_i16(b: buffer, idx: number)
+local function r_i16(b: buffer, idx: number): (number, number)
     return buffer.readi16(b, idx), 2
 end
-local function r_i32(b: buffer, idx: number)
+local function r_i32(b: buffer, idx: number): (number, number)
     return buffer.readi32(b, idx), 4
 end
-local function r_u8(b: buffer, idx: number)
+local function r_u8(b: buffer, idx: number): (number, number)
     return buffer.readu8(b, idx), 1
 end
-local function r_u16(b: buffer, idx: number)
+local function r_u16(b: buffer, idx: number): (number, number)
     return buffer.readu16(b, idx), 2
 end
-local function r_u32(b: buffer, idx: number)
+local function r_u32(b: buffer, idx: number): (number, number)
     return buffer.readu32(b, idx), 4
 end
-local function r_f32(b: buffer, idx: number)
+local function r_f32(b: buffer, idx: number): (number, number)
     return buffer.readf32(b, idx), 4
 end
-local function r_f64(b: buffer, idx: number)
+local function r_f64(b: buffer, idx: number): (number, number)
     return buffer.readf64(b, idx), 8
 end
 
 
 -- Non-terminal writers rely on upvalues and are generated in the serialize/deserialize visitors
-writers = {
+local writers = {
     w_i8, w_i16, w_i32, w_u8, w_u16, w_u32, w_f32, w_f64,
 }
 
-readers = {
+local readers = {
     r_i8, r_i16, r_i32, r_u8, r_u16, r_u32, r_f32, r_f64,
 }
 
@@ -226,7 +371,7 @@ local raw_byte_writers: {(v: number, b: buffer, idx: number) -> number} = {
     [3] = w_u32,
     [4] = w_u32
 }
-local raw_byte_readers: {(buffer, idx: number) -> number} = {
+local raw_byte_readers = {
     [1] = r_u8,
     [2] = r_u16,
     [3] = r_u32,
@@ -300,11 +445,45 @@ end
     AST from token stream
 ]]
 
-type Tokens = { string }
+type Token = string
+type Tokens = { Token }
 
-local NodeConstructors
+type NodeConstructor<R, E...> = (tokens: Tokens, idx: number, E...) -> (R, number)
 
-local function node_from_token(tokens: Tokens, idx: number): (ASTNode | ASTChildren | nil, number)
+local NodeConstructors: {
+	root: NodeConstructor<ASTParseChildren>,
+	error: NodeConstructor<ASTParseError, string, number>,
+	error_with_unparsed_children: NodeConstructor<ASTParseErrorWChildren, string>,
+	error_with_children: NodeConstructor<ASTParseErrorWChildren, string, number, ASTParseChildren>,
+	comment: NodeConstructor<nil>,
+	type_literal: NodeConstructor<ASTParseTypeLiteral>,
+	string_literal: NodeConstructor<ASTParseStringLiteral>,
+	number_literal: NodeConstructor<ASTParseNumberLiteral | ASTParseError>,
+	string: NodeConstructor<ASTParseString>,
+	enum: NodeConstructor<ASTParseEnum>,
+	array: NodeConstructor<ASTParseArray>,
+	periodic_array: NodeConstructor<ASTParsePeriodicArray>,
+	map: NodeConstructor<ASTParseMap | ASTParseError>,
+	struct: NodeConstructor<ASTParseStruct>,
+	vector3: NodeConstructor<ASTParseVector3 | ASTParseError>,
+	-- TODO: This was designed out but may be used again for predicting max sizes?
+	size_specifier: NodeConstructor<ASTParseSizeSpecifier | ASTParseError>,
+	max_size: NodeConstructor<ASTParseSizeSpecifier | ASTParseError>,
+	binding: NodeConstructor<ASTParseBinding, ASTValidTerminals, number>,
+	i8: NodeConstructor<ASTParseTypeLiteral>,
+	i16: NodeConstructor<ASTParseTypeLiteral>,
+	i32: NodeConstructor<ASTParseTypeLiteral>,
+	u8: NodeConstructor<ASTParseTypeLiteral>,
+	u16: NodeConstructor<ASTParseTypeLiteral>,
+	u32: NodeConstructor<ASTParseTypeLiteral>,
+	f8: NodeConstructor<ASTParseTypeLiteral>,
+	f16: NodeConstructor<ASTParseTypeLiteral>,
+	f32: NodeConstructor<ASTParseTypeLiteral>,
+	f64: NodeConstructor<ASTParseTypeLiteral>,
+}
+
+
+local function node_from_token(tokens: Tokens, idx: number): (ASTParseNodes | { ASTParseNodes } | nil, number)
     local token = tokens[idx]
 
     if string.sub(token, 1, 1) == "#" then
@@ -333,7 +512,7 @@ local function node_from_token(tokens: Tokens, idx: number): (ASTNode | ASTChild
     return node_ctor(tokens, idx)
 end
 
-local function parse_binding(tokens: Tokens, idx: number): (ASTBinding | ASTError, number)
+local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | ASTParseErrorWChildren, number)
     local lhs, rhs, consumed
     local consumed_total = 0
     lhs, consumed = node_from_token(tokens, idx)
@@ -356,17 +535,17 @@ local function parse_binding(tokens: Tokens, idx: number): (ASTBinding | ASTErro
     end
 end
 
-local function parse_binding_list(tokens: Tokens, idx: number): ({ASTBinding} | ASTError, number)
+local function parse_binding_list(tokens: Tokens, idx: number): ({ASTParseBinding | ASTParseErrorWChildren}, number)
     if tokens[idx] ~= "(" then
         return NodeConstructors.error(tokens, idx, `Unexpected token {tokens[idx]}: missing ( to open binding list`, 0)
     end
 
-    local children, consumed_total = { }, 1
+    local children: {ASTParseBinding | ASTParseErrorWChildren}, consumed_total = { }, 1
     idx += 1
 
     while true do
         if tokens[idx] == ")" then
-            break            
+            break
         end
 
 		if string.sub(tokens[idx], 1, 1) == "#" then
@@ -393,10 +572,10 @@ local function parse_binding_list(tokens: Tokens, idx: number): ({ASTBinding} | 
 end
 
 -- Parses a list of type literals or parent type nodes such as vector3/list
-local function parse_chunk(tokens: Tokens, idx: number): (ASTChildren, number)
+local function parse_chunk(tokens: Tokens, idx: number): (ASTParseChildren, number)
     local token_ct = #tokens
     local consumed = 0
-    local nodes: ASTChildren = { }
+    local nodes: ASTParseChildren = { }
     while idx <= token_ct do
         local token = tokens[idx]
 
@@ -426,79 +605,59 @@ local function parse_chunk(tokens: Tokens, idx: number): (ASTChildren, number)
 end
 
 local function parse_token_stream(tokens: { string })
-    return NodeConstructors.root(tokens)
+    return NodeConstructors.root(tokens, 1)
 end
 
-local ASTNode = { }
-ASTNode.__index = ASTNode
-
-local function new_node(type: string, value: unknown, index: number, tokens_consumed: number, extra: string?): ASTNode
+local function new_node(type: string, value: unknown, index: number, tokens_consumed: number, extra: string?): ASTParseNodes
     local node = {
         Type = type,
         Value = value,
-        Index = index,
+        TokenIndex = index,
         TokenSize = tokens_consumed,
         Extra = extra or false,
     }
-
-    setmetatable(node, ASTNode)
 
     return node
 end
 
 
-function ASTNode:Accept(visitor)
-    return visitor:Visit(self)
-end
-
-local RootConstructs = {
-	type_literal = true,
-	string_literal = true,
-	array = true,
-	periodic_array = true,
-	vector3 = true,
-}
-
-function ASTNode:IsRootConstruct()
-	return RootConstructs[self.Type] == true
-end
-
 -- Each function return the node and then the number of tokens it consumed
 -- The parse function handles closing parenthesis but not opening ones since each of these
 -- will be consuming tokens after the opening parenthesis
 
-local function root(tokens: { string }, idx)
+local function root(tokens: Tokens, idx: number)
 	local children, consumed = parse_chunk(tokens, 1)
-	local node = new_node("root", children, 1, consumed) :: ASTRoot
+	local node = new_node("root", children, idx, consumed)
 	return node, consumed
 end
-local function error(tokens: { string }, idx: number, err: string, size: number)
-	local node = new_node("error", tokens[idx], idx, size, err) :: ASTError
+local function error(tokens: Tokens, idx: number, err: string, size: number)
+	local node = new_node("error", tokens[idx], idx, size, err) :: ASTParseError
 	return node, size
 end
-local function error_with_children(tokens: { string }, idx: number, err: string, token_size: number, children: { ASTNode })
-	local node = new_node("error", children, idx, token_size, err)
+local function error_with_children(tokens: Tokens, idx: number, err: string, token_size: number, children: ASTParseChildren)
+	local node = new_node("error", children, idx, token_size, err) :: ASTParseErrorWChildren
 	return node, token_size
 end
-local function error_with_unparsed_children(tokens: { string }, idx: number, err: string)
+local function error_with_unparsed_children(tokens: Tokens, idx: number, err: string)
 	local children, consumed = parse_chunk(tokens, idx + 1)
 	local consumed_total = consumed + 1
 	local node, _ = error_with_children(tokens, idx, err, consumed_total, children)
 	return node, consumed_total
 end
-local function comment(tokens: { string }, idx: number)
+local function comment(tokens: Tokens, idx: number)
 	-- The entire comment is a single token
 	-- local node = new_node("comment", tokens[idx], idx, 1)
 	return nil, 1
 end
-local function type_literal(tokens: { string }, idx: number)
-	local node = new_node("type_literal", tokens[idx], idx, 1)
+local function type_literal(tokens: Tokens, idx: number)
+	local node = new_node("type_literal", tokens[idx], idx, 1) :: ASTParseTypeLiteral
 	return node, 1
 end
-local function string_literal(tokens: { string }, idx: number)
-	return new_node("string_literal", tokens[idx + 1], idx, 3), 3
+local function string_literal(tokens: Tokens, idx: number)
+	local node = new_node("string_literal", tokens[idx + 1], idx, 3) :: ASTParseStringLiteral
+	return node, 3
 end
-local function number_literal(tokens: { string }, idx: number)
+local function number_literal(tokens: Tokens, idx: number)
 	local n = tonumber(tokens[idx])
 	if typeof(n) == "number" then
 		local primitive
@@ -507,67 +666,73 @@ local function number_literal(tokens: { string }, idx: number)
 		else
 			primitive = "i32"
 		end
-		return new_node("number_literal", n, idx, 1, primitive), 1
+
+        local node = new_node("number_literal", n, idx, 1, primitive) :: ASTParseNumberLiteral
+		return node, 1
 	else
 		return error(tokens, idx, "Internal error: passed non-number to number_literal", 1)
 	end
 end
-local function _string(tokens: { string }, idx: number)
-	return new_node("string", false, idx, 1), 1
+local function _string(tokens: Tokens, idx: number)
+    local node = new_node("string", false, idx, 1) :: ASTParseString
+	return node, 1
 end
-local function enum(tokens: { string }, idx: number)
+local function enum(tokens: Tokens, idx: number)
 	local children, consumed = parse_chunk(tokens, idx + 1)
 	local consumed_total = consumed + 1
 
 	for i,v in children do
 		if v.Type ~= "string_literal" then
-			local err, _ = error(tokens, v.Index, `Unexpected {v.Value}, enum can only contain string literals`, v.TokenSize)
+			local err, _ = error(tokens, v.TokenIndex, `Unexpected {v.Value}, enum can only contain string literals`, v.TokenSize)
 			children[i] = err
 		end
 	end
 
 	-- Specifies the size of the numbers stored in the buffer, not the length
 	-- table.insert(children, new_node("size_specifier", #children, -1, 0))
+    local node = new_node("enum", children, idx, consumed_total) :: ASTParseEnum
 
-	return new_node("enum", children, idx, consumed_total), consumed_total
+	return node, consumed_total
 end
-local function array(tokens: { string }, idx: number)
+local function array(tokens: Tokens, idx: number)
 	local children, consumed = parse_chunk(tokens, idx + 1)
 	local consumed_total = consumed + 1
 
 	for i,v in children do
-		if not v:IsRootConstruct() then
+		if not ASTNodeIsRootConstruct(v) then
 			if v.Type ~= "error" then
-				local err, _ = error(tokens, v.Index, `Unexpected {v.Value}, array can only contain read/write constructs`, v.TokenSize)
+				local err, _ = error(tokens, v.TokenIndex, `Unexpected {v.Value}, array can only contain read/write constructs`, v.TokenSize)
 				children[i] = err
 			end
 		end
 	end
 
-	return new_node("array", children, idx, consumed_total), consumed_total
+    local node = new_node("array", children, idx, consumed_total) :: ASTParseArray
+	return node, consumed_total
 end
-local function periodic_array(tokens: { string }, idx: number)
+local function periodic_array(tokens: Tokens, idx: number)
 	local children, consumed = parse_chunk(tokens, idx + 1)
 	local consumed_total = consumed + 1
 
 	for i,v in children do
-		if not v:IsRootConstruct() then
+		if not ASTNodeIsRootConstruct(v) then
 			if v.Type ~= "error" then
-				local err, _ = error(tokens, v.Index, `Unexpected {v.Value}, array can only contain read/write constructs`, v.TokenSize)
+				local err, _ = error(tokens, v.TokenIndex, `Unexpected {v.Value}, array can only contain read/write constructs`, v.TokenSize)
 				children[i] = err
 			end
 		end
 	end
 
-	return new_node("periodic_array", children, idx, consumed_total), consumed_total
+    local node = new_node("periodic_array", children, idx, consumed_total) :: ASTParsePeriodicArray
+	return node, consumed_total
 end
-local function map(tokens: { string }, idx: number)
+local function map(tokens: Tokens, idx: number)
 	local children, consumed = parse_binding_list(tokens, idx + 1)
 	local consumed_total = consumed + 1
 
 	if #children > 1 then
 		for i,v in children do
-			local err, _ = error(tokens, v.Index, "map can only have one binding", v.TokenSize)
+			local err, _ = error(tokens, v.TokenIndex, "map can only have one binding", v.TokenSize)
 			children[i] = err
 		end
 	end
@@ -576,22 +741,24 @@ local function map(tokens: { string }, idx: number)
 		return error(tokens, idx, "map must contain a type binding", consumed_total)
 	end
 
-	return new_node("map", children, idx, consumed_total), consumed_total
+    local node = new_node("map", children, idx, consumed_total) :: ASTParseMap
+	return node, consumed_total
 end
-local function struct(tokens: { string }, idx: number)
+local function struct(tokens: Tokens, idx: number)
 	local children, consumed = parse_binding_list(tokens, idx + 1)
 	local consumed_total = consumed + 1
 
 	for i,v in children do
 		if v.Type ~= "binding" then
-			local err, _ = error(tokens, v.Index, "dictionaries can only contain bindings", v.TokenSize)
+			local err, _ = error(tokens, v.TokenIndex, "dictionaries can only contain bindings", v.TokenSize)
 			children[i] = err
 		end
 	end
 
-	return new_node("struct", children, idx, consumed_total), consumed_total
+    local node = new_node("struct", children, idx, consumed_total) :: ASTParseStruct
+	return node, consumed_total
 end
-local function vector3(tokens: { string }, idx: number)
+local function vector3(tokens: Tokens, idx: number)
 	local children, consumed = parse_chunk(tokens, idx + 1)
 	local consumed_total = consumed + 1
 
@@ -607,9 +774,10 @@ local function vector3(tokens: { string }, idx: number)
 		return error(tokens, idx, "vector3 expects 3 type literals", consumed_total)
 	end
 	
-	return new_node("vector3", children, idx, consumed_total), consumed_total
+    local node = new_node("vector3", children, idx, consumed_total) :: ASTParseVector3
+	return node, consumed_total
 end
-local function size_specifier(tokens: { string }, idx: number)
+local function size_specifier(tokens: Tokens, idx: number)
 	local seperator = tokens[idx + 1]
 	local size = tonumber(tokens[idx + 2])
 
@@ -621,42 +789,44 @@ local function size_specifier(tokens: { string }, idx: number)
 		return error(tokens, idx, "Expected number for size specifier", 3)
 	end
 	
-	return new_node("size_specifier", size, idx, 3), 3
+    local node = new_node("size_specifier", size, idx, 3) :: ASTParseSizeSpecifier
+	return node, 3
 end
-local function max_size(tokens: { string }, idx: number)
+local function max_size(tokens: Tokens, idx: number)
 	return size_specifier(tokens, idx)
 end
-local function binding(tokens: { string }, idx: number, children: { ASTNode }, token_size: number)
-	return new_node("binding", children, idx, token_size), token_size
+local function binding(tokens: Tokens, idx: number, children: ASTValidTerminals, token_size: number)
+    local node = new_node("binding", children, idx, token_size) :: ASTParseBinding
+	return node, token_size
 end
-local function i8(tokens: { string }, idx: number)
+local function i8(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
-local function i16(tokens: { string }, idx: number)
+local function i16(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
-local function i32(tokens: { string }, idx: number)
+local function i32(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
-local function u8(tokens: { string }, idx: number)
+local function u8(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
-local function u16(tokens: { string }, idx: number)
+local function u16(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
-local function u32(tokens: { string }, idx: number)
+local function u32(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
-local function f8(tokens: { string }, idx: number)
+local function f8(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
-local function f16(tokens: { string }, idx: number)
+local function f16(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
-local function f32(tokens: { string }, idx: number)
+local function f32(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
-local function f64(tokens: { string }, idx: number)
+local function f64(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
 
@@ -700,7 +870,20 @@ NodeConstructors = {
 local Visitor = { }
 Visitor.__index = Visitor
 
-local function Visit(self: Visitor, node: ASTNode)
+
+local RootConstructs = {
+	type_literal = true,
+	string_literal = true,
+	array = true,
+	periodic_array = true,
+	vector3 = true,
+}
+
+function ASTNodeIsRootConstruct<Node>(node: Node)
+	return RootConstructs[node.Type] == true
+end
+
+local function VisitorVisit<Visitor, Node>(self: Visitor, node: Node)
     local ty = node.Type
     local visit_fn = self[ty]
     if not visit_fn then
@@ -710,19 +893,23 @@ local function Visit(self: Visitor, node: ASTNode)
     return visit_fn(self, node)
 end
 
-local function TraverseChildren(self: Visitor, node: ASTNode)
+local function ASTNodeAccept<Node, Visitor>(node: Node, visitor: Visitor)
+    return VisitorVisit(visitor, node)
+end
+
+local function VisitorTraverseChildren<Visitor, Node>(self: Visitor, node: Node)
     local children = node.Value
     local len = #children
 
     for i = 1, len, 1 do
-        children[i]:Accept(self)
+        ASTNodeAccept(children[i], self)
     end
 
-    return true
+    return
 end
 
-local function CollectChildren(self: Visitor, node: ASTNode)
-    local children = node.Value :: { ASTNode }
+local function VisitorCollectChildren<Visitor, Node>(self: Visitor, node: Node)
+    local children = node.Value
     local len = #children
     local vals = table.create(len)
 
@@ -731,7 +918,7 @@ local function CollectChildren(self: Visitor, node: ASTNode)
 		-- This behavior is desirable to let CollectChildren output a linear list of return values even if some
 		-- nodes return multiple values
         -- E.G. the NodeSizeVisitor wants a linear list of node sizes
-        local val = { children[i]:Accept(self) }
+        local val = { ASTNodeAccept(children[i], self) }
         for _, v in val do
             table.insert(vals, v)
         end
@@ -740,126 +927,207 @@ local function CollectChildren(self: Visitor, node: ASTNode)
     return vals
 end
 
-type Visitor = {
-    root:                (Visitor, ASTRoot) -> any?,
-    comment:             (Visitor, ASTComment) -> any?,
-    error:               (Visitor, ASTError) -> any?,
-    error_with_children: (Visitor, ASTErrorWChildren) -> any?,
-    type_literal:        (Visitor, ASTTypeLiteral) -> any?,
-    string_literal:      (Visitor, ASTStringLiteral) -> any?,
-	number_literal:      (Visitor, ASTNumberLiteral) -> any?,
-    enum:                (Visitor, ASTIdList) -> any?,
-    array:               (Visitor, ASTArray) -> any?,
-    periodic_array:      (Visitor, ASTPeriodicArray) -> any?,
-    vector3:             (Visitor, ASTVector3) -> any?,
-    size_specifier:      (Visitor, ASTSizeSpecifier) -> any?,
-    binding:             (Visitor, ASTBinding) -> any?,
-	map:                 (Visitor, ASTMap) -> any?,
-	string:              (Visitor, ASTString) -> any?,
-	struct:              (Visitor, ASTStruct) -> any?,
-
-    TraverseChildren:    (Visitor, ASTNode) -> nil,
-    Visit:               (Visitor, ASTNode) -> any?,
-    CollectChildren:     (Visitor, ASTNode) -> any?,
+-- Visitor that can take in non-error-checked ASTs
+type ParseVisitor<
+	ParentVisitor,
+	RootRet,
+	CommentRet,
+	ErrorRet,
+	ErrorWithChildrenRet,
+	TypeLiteralRet,
+	StringLiteralRet,
+	NumberLiteralRet,
+	StringRet,
+	EnumRet,
+	ArrayRet,
+	PeriodicArrayRet,
+	Vector3Ret,
+	SizeSpecifierRet,
+	BindingRet,
+	MapRet,
+	StructRet
+> = {
+	root: (ParentVisitor, ASTParseRoot) -> RootRet,
+	comment: (ParentVisitor, ASTParseComment) -> CommentRet,
+	error: (ParentVisitor, ASTParseError) -> ErrorRet,
+	error_with_children: (ParentVisitor, ASTParseErrorWChildren) -> ErrorWithChildrenRet,
+	type_literal: (ParentVisitor, ASTParseTypeLiteral) -> TypeLiteralRet,
+	string_literal: (ParentVisitor, ASTParseStringLiteral) -> StringLiteralRet,
+	number_literal: (ParentVisitor, ASTParseNumberLiteral) -> NumberLiteralRet,
+	enum: (ParentVisitor, ASTParseEnum) -> EnumRet,
+	array: (ParentVisitor, ASTParseArray) -> ArrayRet,
+	periodic_array: (ParentVisitor, ASTParsePeriodicArray) -> PeriodicArrayRet,
+	vector3: (ParentVisitor, ASTParseVector3) -> Vector3Ret,
+	size_specifier: (ParentVisitor, ASTParseSizeSpecifier) -> SizeSpecifierRet,
+	binding: (ParentVisitor, ASTParseBinding) -> BindingRet,
+	map: (ParentVisitor, ASTParseMap) -> MapRet,
+	string: (ParentVisitor, ASTParseString) -> StringRet,
+	struct: (ParentVisitor, ASTParseStruct) -> StructRet,
 }
 
-local function print_desc(self: Visitor, desc)
-    local out = ""
-    for i = 1, self.indent, 1 do
-        out ..= "\t"
+type ValidVisitor<
+	ParentVisitor,
+	RootRet,
+	TypeLiteralRet,
+	StringLiteralRet,
+	NumberLiteralRet,
+	StringRet,
+	EnumRet,
+	ArrayRet,
+	PeriodicArrayRet,
+	Vector3Ret,
+	SizeSpecifierRet,
+	BindingRet,
+	MapRet,
+	StructRet
+> = {
+	root: (ParentVisitor, ASTValidRoot) -> RootRet,
+	type_literal: (ParentVisitor, ASTValidTypeLiteral) -> TypeLiteralRet,
+	string_literal: (ParentVisitor, ASTValidStringLiteral) -> StringLiteralRet,
+	number_literal: (ParentVisitor, ASTValidNumberLiteral) -> NumberLiteralRet,
+	enum: (ParentVisitor, ASTValidEnum) -> EnumRet,
+	array: (ParentVisitor, ASTValidArray) -> ArrayRet,
+	periodic_array: (ParentVisitor, ASTValidPeriodicArray) -> PeriodicArrayRet,
+	vector3: (ParentVisitor, ASTValidVector3) -> Vector3Ret,
+	size_specifier: (ParentVisitor, ASTValidSizeSpecifier) -> SizeSpecifierRet,
+	binding: (ParentVisitor, ASTValidBinding) -> BindingRet,
+	map: (ParentVisitor, ASTValidMap) -> MapRet,
+	string: (ParentVisitor, ASTValidString) -> StringRet,
+	struct: (ParentVisitor, ASTValidStruct) -> StructRet,
+}
+
+type PrintVisitor = ParseVisitor<
+	PrintVisitor,
+	nil, nil, nil,
+	nil, nil, nil,
+	nil, nil, nil,
+	nil, nil, nil,
+	nil, nil, nil,
+	nil
+>
+
+local function PrintAST(ast: ASTParseRoot)
+    local indent = 0
+    local function print_desc(self, desc: string)
+        local out = ""
+        for i = 1, indent, 1 do
+            out ..= "\t"
+        end
+
+        print(out .. desc)
     end
 
-    print(out .. desc)
+    
+    local visitor: PrintVisitor = {
+        root = function(self, node)
+            print_desc(self, "root")
+            indent += 1
+            VisitorTraverseChildren(self, node)
+            indent -= 1
+        end,
+        comment = function(self, node)
+            print_desc(self, "comment: " .. node.Value)
+        end,
+        error = function(self, node)
+            print_desc(self, "error: " .. node.Extra)
+        end,
+        error_with_children = function(self, node)
+            print_desc(self, "error: " .. node.Extra)
+            indent += 1
+            VisitorTraverseChildren(self, node)
+            indent -= 1
+        end,
+        type_literal = function(self, node)
+            print_desc(self, "type: " .. node.Value)
+        end,
+        string_literal = function(self, node)
+            print_desc(self, "string literal: " .. node.Value)
+        end,
+        number_literal = function(self, node)
+            print_desc(self, "number literal: " .. node.Value .. " (" .. node.Extra .. ")")
+        end,
+        string = function(self, node)
+            print_desc(self, "string")
+        end,
+        enum = function(self, node)
+            local byte_size = bytes_to_store_value(#node.Value)
+            print_desc(self, `enum: {#node.Value} ids -> {byte_size} bytes per id`)
+            indent += 1
+            VisitorTraverseChildren(self, node)
+            indent -= 1
+        end,
+        array = function(self, node)
+            print_desc(self, "array:")
+            indent += 1
+            VisitorTraverseChildren(self, node)
+            indent -= 1
+        end,
+        periodic_array = function(self, node)
+            print_desc(self, "periodic_array:")
+            indent += 1
+            VisitorTraverseChildren(self, node)
+            indent -= 1
+        end,
+        map = function(self, node)
+            print_desc(self, "map:")
+            indent += 1
+            VisitorTraverseChildren(self, node)
+            indent -= 1
+        end,
+        struct = function(self, node)
+            print_desc(self, "struct:")
+            indent += 1
+            VisitorTraverseChildren(self, node)
+            indent -= 1
+        end,
+        vector3 = function(self, node)
+            print_desc(self, "vector3:")
+            indent += 1
+            VisitorTraverseChildren(self, node)
+            indent -= 1
+        end,
+        size_specifier = function(self, node)
+            -- handled by parent
+        end,
+        binding = function(self, node)
+            print_desc(self, "binding")
+            indent += 1
+            VisitorTraverseChildren(self, node)
+            indent -= 1
+        end,
+    }
+
+    ASTNodeAccept(ast, visitor)
 end
 
-local PrintVisitor: Visitor = {
-    indent = 0,
+type ValidateVisitor = ParseVisitor<
+	ValidateVisitor,
+	ASTValidRoot?,
+	nil,
+	number,
+	number,
+	nil,
+	nil,
+	nil,
+	nil,
+	number?,
+	number?,
+	number?,
+	number?,
+	nil,
+	number?,
+	number?,
+	number?
+>
+
+local ValidateVisitor: ValidateVisitor = {
     root = function(self, node)
-        print_desc(self, "root")
-        self.indent += 1
-        self:TraverseChildren(node)
-        self.indent -= 1
-    end,
-    comment = function(self, node)
-        print_desc(self, "comment: " .. node.Value)
-    end,
-    error = function(self, node)
-        print_desc(self, "error: " .. node.Extra)
-    end,
-    error_with_children = function(self, node)
-        print_desc(self, "error: " .. node.Extra)
-        self.indent += 1
-        self:TraverseChildren(node)
-        self.indent -= 1
-    end,
-    type_literal = function(self, node)
-        print_desc(self, "type: " .. node.Value)
-    end,
-    string_literal = function(self, node)
-        print_desc(self, "string literal: " .. node.Value)
-    end,
-	number_literal = function(self, node)
-		print_desc(self, "number literal: " .. node.Value .. " (" .. node.Extra .. ")")
-	end,
-	string = function(self, node)
-		print_desc(self, "string")
-	end,
-    enum = function(self, node)
-        local byte_size = bytes_to_store_value(#node.Value)
-        print_desc(self, `enum: {#node.Value} ids -> {byte_size} bytes per id`)
-        self.indent += 1
-        self:TraverseChildren(node)
-        self.indent -= 1
-    end,
-    array = function(self, node)
-        print_desc(self, "array:")
-        self.indent += 1
-        self:TraverseChildren(node)
-        self.indent -= 1
-    end,
-    periodic_array = function(self, node)
-		print_desc(self, "periodic_array:")
-        self.indent += 1
-        self:TraverseChildren(node)
-        self.indent -= 1
-    end,
-	map = function(self, node)
-		print_desc(self, "map:")
-        self.indent += 1
-        self:TraverseChildren(node)
-        self.indent -= 1
-	end,
-	struct = function(self, node)
-		print_desc(self, "struct:")
-		self.indent += 1
-		self:TraverseChildren(node)
-		self.indent -= 1
-	end,
-    vector3 = function(self, node)
-        print_desc(self, "vector3:")
-        self.indent += 1
-        self:TraverseChildren(node)
-        self.indent -= 1
-    end,
-    size_specifier = function(self, node)
-        -- handled by parent
-    end,
-    binding = function(self, node)
-        print_desc(self, "binding")
-        self.indent += 1
-        self:TraverseChildren(node)
-        self.indent -= 1
-    end,
-
-    TraverseChildren = TraverseChildren,
-    CollectChildren = CollectChildren,
-    Visit = Visit
-}
-
-
-local ContainsErrors: Visitor = {
-    root = function(self, node)
-        return self:CollectChildren(node)
+		local is_valid = sum(VisitorCollectChildren(self, node)) < math.huge
+		if is_valid then
+			return (node :: any) :: ASTValidRoot
+		else
+	        return nil
+		end
     end,
     comment = function(self, node)
         return nil
@@ -883,59 +1151,66 @@ local ContainsErrors: Visitor = {
 		return nil
 	end,
     enum = function(self, node)
-        return sum(self:CollectChildren(node))
+        return sum(VisitorCollectChildren(self, node))
     end,
     array = function(self, node)
-        return sum(self:CollectChildren(node))
+        return sum(VisitorCollectChildren(self, node))
     end,
 	map = function(self, node)
-		return sum(self:CollectChildren(node))
+		return sum(VisitorCollectChildren(self, node))
 	end,
 	struct = function(self, node)
-		return sum(self:CollectChildren(node))
+		return sum(VisitorCollectChildren(self, node))
 	end,
     periodic_array = function(self, node)
-        return sum(self:CollectChildren(node))
+        return sum(VisitorCollectChildren(self, node))
     end,
     vector3 = function(self, node)
-        return sum(self:CollectChildren(node))
+        return sum(VisitorCollectChildren(self, node))
     end,
     size_specifier = function(self, node)
         return nil
     end,
     binding = function(self, node)
-        return sum(self:CollectChildren(node))
+        return sum(VisitorCollectChildren(self, node))
     end,
-
-    TraverseChildren = TraverseChildren,
-    CollectChildren = CollectChildren,
-    Visit = Visit
 }
 
 -- Calculates the byte size each argument to the serializer will take up
 -- For variable size nodes, it will calculate the max size
-local SizeCalcVisitor: Visitor = {
-    root = function(self, node: ASTRoot)
-        return self:CollectChildren(node)
+
+type SizeCalcFn<T> = (T) -> number
+type SizeCalcRootRet = {(number | SizeCalcFn<unknown>)}
+type SizeCalcVisitor = ValidVisitor<
+	SizeCalcVisitor,
+	SizeCalcRootRet,
+	number,
+	number,
+	number,
+	SizeCalcFn<string>,
+	SizeCalcFn<{string}>,
+	number,
+	SizeCalcFn<{}>,
+	number,
+	number,
+	(number | SizeCalcFn<unknown>, number | SizeCalcFn<unknown>) -> number,
+	SizeCalcFn<{[string]: number}> | SizeCalcFn<{unknown}>,
+	SizeCalcFn<{unknown}>
+>
+
+
+local SizeCalcVisitor: SizeCalcVisitor = {
+    root = function(self, node)
+        return VisitorCollectChildren(self, node)
     end,
-    error = function(self, node: ASTError)
-        return math.huge
-    end,
-    error_with_children = function(self, node: ASTErrorWChildren)
-        -- for debugging we'll call children even though a math.huge would be fine
-        return sum(self:CollectChildren(node))
-    end,
-    comment = function(self, node: ASTComment)
-        return nil
-    end,
-    type_literal = function(self, node: ASTTypeLiteral)
+    type_literal = function(self, node)
         return type_literal_sizes[node.Value]
     end,
-    size_specifier = function(self, node: ASTSizeSpecifier)
+    size_specifier = function(self, node)
         return bytes_to_store_dynamic_size(node.Value)
     end,
-    enum = function(self, node: ASTIdList)
-        local children = self:CollectChildren(node)
+    enum = function(self, node)
+        local children = VisitorCollectChildren(self, node)
 
         return function(t: { string })
 			local encoded_len = bytes_to_store_dynamic_size(#t)
@@ -943,8 +1218,8 @@ local SizeCalcVisitor: Visitor = {
             return #t * encoded_number_size + encoded_len
         end
     end,
-    binding = function(self, node: ASTBinding)
-        local children = self:CollectChildren(node)
+    binding = function(self, node)
+        local children = VisitorCollectChildren(self, node)
 		local lhs, rhs = children[1], children[2]
 
 		if typeof(lhs) ~= "function" then
@@ -970,24 +1245,24 @@ local SizeCalcVisitor: Visitor = {
 			return ls + rs
 		end
     end,
-    string_literal = function(self, node: ASTStringLiteral)
+    string_literal = function(self, node)
 		local len = string.len(node.Value)
         return bytes_to_store_dynamic_size(len) + len
     end,
-	number_literal = function(self, node: ASTNumberLiteral)
+	number_literal = function(self, node)
 		return type_literal_sizes[node.Extra]
 	end,
-	string = function(self, node: ASTString)
+	string = function(self, node)
 		return function(s: string)
 			local len = string.len(s)
 			return bytes_to_store_dynamic_size(len) + len
 		end
 	end,
-    array = function(self, node: ASTArray)
-        return sum(self:CollectChildren(node))
+    array = function(self, node)
+        return sum(VisitorCollectChildren(self, node))
     end,
-    periodic_array = function(self, node: ASTPeriodicArray)
-        local child_sizes = self:CollectChildren(node)
+    periodic_array = function(self, node)
+        local child_sizes = VisitorCollectChildren(self, node)
         -- local size_padding = table.remove(child_sizes)
         local len_per_period = #child_sizes
         local size_per_period = sum(child_sizes)
@@ -999,8 +1274,8 @@ local SizeCalcVisitor: Visitor = {
             return periods * size_per_period + bytes_to_store_dynamic_size(periods)
         end
     end,
-	map = function(self, node: ASTMap)
-		local children = self:CollectChildren(node)
+	map = function(self, node)
+		local children = VisitorCollectChildren(self, node)
 		local binding_calc = children[1]
 
 		local f
@@ -1027,8 +1302,8 @@ local SizeCalcVisitor: Visitor = {
 
 		return f
 	end,
-	struct = function(self, node: ASTStruct)
-		local children = self:CollectChildren(node)
+	struct = function(self, node)
+		local children = VisitorCollectChildren(self, node)
 		local struct_len = bytes_to_store_dynamic_size(#children)
 		local ast_children = node.Value
 		local child_map = { }
@@ -1048,27 +1323,37 @@ local SizeCalcVisitor: Visitor = {
 
 		return f
 	end,
-    vector3 = function(self, node: ASTVector3)
-        return sum(self:CollectChildren(node))
+    vector3 = function(self, node)
+        return sum(VisitorCollectChildren(self, node))
     end,
-    TraverseChildren = TraverseChildren,
-    CollectChildren = CollectChildren,
-    Visit = Visit
 }
 
 -- Serialize/deserialize visitors assume the AST has not been mutated between each-others visits
 -- The order of for..in loops needs to be the same for these visitors
 -- While the order is undefined, it is consistent as long as the table being iterated is not mutated
-local SerializeVisitor: Visitor = {
-    root = function(self, node: ASTRoot)
-        local arg_sizes = node:Accept(ContainsErrors)
-        if sum(arg_sizes) == math.huge then
-            return false
-        end
+type WriterFn<V> = (V, buffer, number) -> number
+type SerializeVisitor = ValidVisitor<
+	SerializeVisitor,
+	(...any) -> buffer,
+	WriterFn<number>,
+	WriterFn<string>,
+	WriterFn<number>,
+	WriterFn<string>,
+	WriterFn<{string}>,
+	WriterFn<{unknown}>,
+	WriterFn<{unknown}>,
+	WriterFn<Vector3>,
+	WriterFn<number>,
+	(unknown, unknown, buffer, number) -> number,
+	WriterFn<{[unknown]: unknown}>,
+	WriterFn<{[unknown]: unknown}>
+>
 
-        local sizes = node:Accept(SizeCalcVisitor)
+local SerializeVisitor: SerializeVisitor = {
+    root = function(self, node)
+        local sizes = ASTNodeAccept(node, SizeCalcVisitor)
         
-        local procedures = self:CollectChildren(node)
+        local procedures = VisitorCollectChildren(self, node)
 
         local function serialize_args(...)
             local args = { ... }
@@ -1098,19 +1383,10 @@ local SerializeVisitor: Visitor = {
         
         return serialize_args
     end,
-    error = function(self, node: ASTError)
-        return nil
-    end,
-    error_with_children = function(self, node: ASTErrorWChildren)
-        return nil
-    end,
-    comment = function(self, node: ASTComment)
-        return nil
-    end,
-    type_literal = function(self, node: ASTTypeLiteral)
+    type_literal = function(self, node)
         return writers[terminal_to_idx[node.Value]]
     end,
-    string_literal = function(self, node: ASTStringLiteral)
+    string_literal = function(self, node)
 		local str = node.Value
 		return function(_, b: buffer, idx: number)
 			local len = string.len(str)
@@ -1121,10 +1397,10 @@ local SerializeVisitor: Visitor = {
 			return len + s
 		end
     end,
-	number_literal = function(self, node: ASTNumberLiteral)
+	number_literal = function(self, node)
 		return writers[terminal_to_idx[node.Extra]]
 	end,
-	string = function(self, node: ASTString)
+	string = function(self, node)
 		return function(t: string, b: buffer, idx: number)
 			local len = string.len(t)
 			local s = write_size_specifier(len, b, idx)
@@ -1134,11 +1410,11 @@ local SerializeVisitor: Visitor = {
 			return len + s
 		end
 	end,
-    size_specifier = function(self, node: ASTSizeSpecifier)
+    size_specifier = function(self, node)
         return raw_byte_writers[bytes_to_store_value(node.Value)]
     end,
-    binding = function(self, node: ASTBinding)
-        local children = self:CollectChildren(node)
+    binding = function(self, node)
+        local children = VisitorCollectChildren(self, node)
         local lhs, rhs = children[1], children[2]
         return function(k, v, b: buffer, idx: number)
             local s = 0
@@ -1148,7 +1424,7 @@ local SerializeVisitor: Visitor = {
             return s
         end
     end,
-    enum = function(self, node: ASTIdList)
+    enum = function(self, node)
         local ast_children = node.Value
         local byte_writer = raw_byte_writers[bytes_to_store_value(#ast_children)]
 
@@ -1169,8 +1445,8 @@ local SerializeVisitor: Visitor = {
 
         return f
     end,
-    array = function(self, node: ASTArray)
-        local fns = self:CollectChildren(node)
+    array = function(self, node)
+        local fns = VisitorCollectChildren(self, node)
 
         local function f(t: { }, b: buffer, idx: number)
             local s = 0
@@ -1184,8 +1460,8 @@ local SerializeVisitor: Visitor = {
 
         return f
     end,
-    periodic_array = function(self, node: ASTPeriodicArray)
-        local fns = self:CollectChildren(node)
+    periodic_array = function(self, node)
+        local fns = VisitorCollectChildren(self, node)
         local period = #fns
 
         local function f(t: { }, b: buffer, idx: number)
@@ -1202,8 +1478,8 @@ local SerializeVisitor: Visitor = {
         end
         return f
     end,
-	map = function(self, node: ASTMap)
-		local children = self:CollectChildren(node)
+	map = function(self, node)
+		local children = VisitorCollectChildren(self, node)
 		local writer = children[1]
 
 		local f
@@ -1233,8 +1509,8 @@ local SerializeVisitor: Visitor = {
 
 		return f
 	end,
-	struct = function(self, node: ASTStruct)
-		local children = self:CollectChildren(node)
+	struct = function(self, node)
+		local children = VisitorCollectChildren(self, node)
 
 		local ast_children = node.Value
 		local child_map = { }
@@ -1254,8 +1530,8 @@ local SerializeVisitor: Visitor = {
 
 		return f
 	end, 
-    vector3 = function(self, node: ASTVector3)
-        local fns = self:CollectChildren(node)
+    vector3 = function(self, node)
+        local fns = VisitorCollectChildren(self, node)
         
         local function f(v: Vector3, b: buffer, idx: number)
             local s = 0
@@ -1268,21 +1544,32 @@ local SerializeVisitor: Visitor = {
         
         return f
     end,
-    
-    TraverseChildren = TraverseChildren,
-    CollectChildren = CollectChildren,
-    Visit = Visit
 }
 
-local DeserializeVisitor: Visitor = {
-    root = function(self, node: ASTRoot)
-        local arg_sizes = node:Accept(ContainsErrors)
-        if sum(arg_sizes) == math.huge then
-            return false
-        end
-        
-        local procedures = self:CollectChildren(node)
-        local arg_ct = #arg_sizes
+type ReaderFn<V> = (buffer: buffer, idx: number) -> (V, number)
+type DeserializeVisitor = ValidVisitor<
+	DeserializeVisitor,
+	(buffer) -> ...unknown,
+	ReaderFn<number>,
+	ReaderFn<string>,
+	ReaderFn<number>,
+	ReaderFn<string>,
+	ReaderFn<{string}>,
+	ReaderFn<{unknown}>,
+	ReaderFn<{unknown}>,
+	ReaderFn<Vector3>,
+	ReaderFn<number>,
+	(buffer, number) -> (unknown, unknown, number),
+	ReaderFn<{[unknown]: unknown}>,
+	ReaderFn<{[unknown]: unknown}>
+>
+
+local DeserializeVisitor: DeserializeVisitor = {
+    root = function(self, node)
+        local sizes = ASTNodeAccept(node, SizeCalcVisitor)
+		
+        local procedures = VisitorCollectChildren(self, node)
+        local arg_ct = #sizes
 
         local function deserialize_buf(b: buffer)
             local ret = table.create(arg_ct)
@@ -1300,39 +1587,39 @@ local DeserializeVisitor: Visitor = {
         
         return deserialize_buf
     end,
-    error = function(self, node: ASTError)
+    error = function(self, node)
          return nil
     end,
-    error_with_children = function(self, node: ASTErrorWChildren)
+    error_with_children = function(self, node)
         return nil
     end,
-    comment = function(self, node: ASTComment)
+    comment = function(self, node)
         return nil
     end,
-    type_literal = function(self, node: ASTTypeLiteral)
+    type_literal = function(self, node)
         return readers[terminal_to_idx[node.Value]]
     end,
-    string_literal = function(self, node: ASTStringLiteral)
+    string_literal = function(self, node)
         return function(b: buffer, idx: number)
 			local bsize, s = read_size_specifier(b, idx)
 
 			return buffer.readstring(b, idx + s, bsize), bsize + s
 		end
     end,
-	number_literal = function(self, node: ASTNumberLiteral)
+	number_literal = function(self, node)
 		return readers[terminal_to_idx[node.Extra]]
 	end,
-	string = function(self, node: ASTString)
+	string = function(self, node)
 		return function(b: buffer, idx: number)
 			local bsize, s = read_size_specifier(b, idx)
 
 			return buffer.readstring(b, idx + s, bsize), bsize + s
 		end
 	end,
-    size_specifier = function(self, node: ASTSizeSpecifier)
+    size_specifier = function(self, node)
         return raw_byte_readers[bytes_to_store_value(node.Value)]
     end,
-    enum = function(self, node: ASTIdList)
+    enum = function(self, node)
         -- also has a size_specifier as the last child
         local ast_children = node.Value
 		local byte_size = bytes_to_store_value(#ast_children)
@@ -1361,8 +1648,8 @@ local DeserializeVisitor: Visitor = {
 
         return f
     end,
-    array = function(self, node: ASTArray)
-        local fns = self:CollectChildren(node)
+    array = function(self, node)
+        local fns = VisitorCollectChildren(self, node)
         local len = #fns
 
         local function f(b: buffer, idx: number)
@@ -1380,8 +1667,8 @@ local DeserializeVisitor: Visitor = {
 
         return f
     end,
-    periodic_array = function(self, node: ASTPeriodicArray)
-        local fns = self:CollectChildren(node)
+    periodic_array = function(self, node)
+        local fns = VisitorCollectChildren(self, node)
         local len = #fns
 
         local function f(b: buffer, idx: number)
@@ -1401,8 +1688,8 @@ local DeserializeVisitor: Visitor = {
         
         return f 
     end,
-	map = function(self, node: ASTMap)
-		local fns = self:CollectChildren(node)
+	map = function(self, node)
+		local fns = VisitorCollectChildren(self, node)
 		local reader = fns[1]
 
 		local function f(b: buffer, idx: number)
@@ -1420,8 +1707,8 @@ local DeserializeVisitor: Visitor = {
 
 		return f
 	end,
-	struct = function(self, node: ASTStruct)
-		local children = self:CollectChildren(node)
+	struct = function(self, node)
+		local children = VisitorCollectChildren(self, node)
 		local struct_len = #children
 		local ast_children = node.Value
 		local child_map = { }
@@ -1444,8 +1731,8 @@ local DeserializeVisitor: Visitor = {
 
 		return f
 	end,
-    vector3 = function(self, node: ASTVector3)
-        local fns = self:CollectChildren(node)
+    vector3 = function(self, node)
+        local fns = VisitorCollectChildren(self, node)
 
         local function f(b: buffer, idx: number)
             local s = 0
@@ -1460,8 +1747,8 @@ local DeserializeVisitor: Visitor = {
 
         return f
     end,
-	binding = function(self, node: ASTBinding)
-        local children = self:CollectChildren(node)
+	binding = function(self, node)
+        local children = VisitorCollectChildren(self, node)
         local lhs, rhs = children[1], children[2]
         return function(b: buffer, idx: number)
 			local l, s = lhs(b, idx)
@@ -1470,10 +1757,6 @@ local DeserializeVisitor: Visitor = {
             return l, r, s + s2
         end
 	end,
-    
-    TraverseChildren = TraverseChildren,
-    CollectChildren = CollectChildren,
-    Visit = Visit
 }
 
 local function str_to_ast(str)
@@ -1483,11 +1766,12 @@ local function str_to_ast(str)
 end
 
 local function compile_serdes_str(str)
-    local ast = str_to_ast(str)
-    local serializer = ast:Accept(SerializeVisitor)
-    local deserializer = ast:Accept(DeserializeVisitor)
+    local parsed_ast_root = str_to_ast(str)
+	local valid_ast_root: ASTValidRoot = ASTNodeAccept(parsed_ast_root, ValidateVisitor)
+    local serializer = ASTNodeAccept(valid_ast_root, SerializeVisitor)
+    local deserializer = ASTNodeAccept(valid_ast_root, DeserializeVisitor)
 
-    return serializer, deserializer, ast
+    return serializer, deserializer, parsed_ast_root
 end
 
 local function pretty_compile(str)

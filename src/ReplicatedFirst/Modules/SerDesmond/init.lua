@@ -1281,29 +1281,14 @@ local SizeCalcVisitor: SizeCalcVisitor = {
 		local children = VisitorCollectChildren(self, node)
 		local binding_calc = children[1]
 
-		local f
-		local lhs_type = node.Value[1].Value[1].Type
-		if lhs_type == "string" then
-			f = function(t: { })
-				local s = bytes_to_store_dynamic_size(count_table_keys(t))
-				for i,v in t do
-					s += binding_calc(i, v)
-				end
-	
-				return s
+		return function(t: { })
+			local s = bytes_to_store_dynamic_size(count_table_keys(t))
+			for i,v in t do
+				s += binding_calc(i, v)
 			end
-		else
-			f = function(t: { })
-				local s = bytes_to_store_dynamic_size(#t)
-				for i,v in t do
-					s += binding_calc(i, v)
-				end
-	
-				return s
-			end
-		end
 
-		return f
+			return s
+		end
 	end,
 	struct = function(self, node)
 		local children = VisitorCollectChildren(self, node)

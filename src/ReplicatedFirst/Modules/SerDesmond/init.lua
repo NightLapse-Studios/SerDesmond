@@ -483,7 +483,7 @@ local NodeConstructors: {
 }
 
 
-local function node_from_token(tokens: Tokens, idx: number): (ASTParseNodes | nil, number)
+local function node_from_token<R>(tokens: Tokens, idx: number): (R | ASTParseStringLiteral | ASTParseNumberLiteral | ASTParseError | ASTParseErrorWChildren | nil, number)
     local token = tokens[idx]
 
     if string.sub(token, 1, 1) == "#" then
@@ -1222,6 +1222,9 @@ local SizeCalcVisitor: SizeCalcVisitor = {
         end
     end,
     binding = function(self, node)
+		-- @Types
+		-- children resolves to {(((unknown) -> number) | number) -> number}
+		-- Should resolve to    {((unknown) -> number) | number}
         local children = VisitorCollectChildren(self, node)
 		local lhs, rhs = children[1], children[2]
 

@@ -1,4 +1,5 @@
 --!strict
+--!native
 
 local is_separator = require(script.is_separator)
 local Tokenizer = require(script.Tokenizer)

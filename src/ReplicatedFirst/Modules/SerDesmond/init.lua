@@ -124,7 +124,7 @@ type ASTParseString = {
 }
 type ASTParseStruct = {
 	Type: "struct",
-	Value: { ASTParseBinding },
+	Value: { ASTParseBinding | ASTParseError },
 	Extra: false,
     TokenIndex: number,
     TokenSize: number
@@ -483,7 +483,7 @@ local NodeConstructors: {
 }
 
 
-local function node_from_token(tokens: Tokens, idx: number): (ASTParseNodes | { ASTParseNodes } | nil, number)
+local function node_from_token(tokens: Tokens, idx: number): (ASTParseNodes | nil, number)
     local token = tokens[idx]
 
     if string.sub(token, 1, 1) == "#" then
@@ -535,7 +535,7 @@ local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | AS
     end
 end
 
-local function parse_binding_list(tokens: Tokens, idx: number): ({ASTParseBinding | ASTParseErrorWChildren}, number)
+local function parse_binding_list(tokens: Tokens, idx: number): ({ASTParseBinding | ASTParseError | ASTParseErrorWChildren}, number)
     if tokens[idx] ~= "(" then
         return NodeConstructors.error(tokens, idx, `Unexpected token {tokens[idx]}: missing ( to open binding list`, 0)
     end
@@ -598,7 +598,9 @@ local function parse_chunk(tokens: Tokens, idx: number): (ASTParseChildren, numb
         consumed += children_consumed
         idx += children_consumed
 
-        table.insert(nodes, root_node)
+		if root_node then
+	        table.insert(nodes, root_node)
+		end
     end
 
     return nodes, consumed
@@ -883,7 +885,7 @@ function ASTNodeIsRootConstruct<Node>(node: Node)
 	return RootConstructs[node.Type] == true
 end
 
-local function VisitorVisit<Visitor, Node>(self: Visitor, node: Node)
+local function VisitorVisit<Visitor, Node, R>(self: Visitor, node: Node): R
     local ty = node.Type
     local visit_fn = self[ty]
     if not visit_fn then
@@ -893,8 +895,9 @@ local function VisitorVisit<Visitor, Node>(self: Visitor, node: Node)
     return visit_fn(self, node)
 end
 
-local function ASTNodeAccept<Node, Visitor>(node: Node, visitor: Visitor)
-    return VisitorVisit(visitor, node)
+local function ASTNodeAccept<Node, Visitor, R>(node: Node, visitor: Visitor): R
+	local ret = VisitorVisit(visitor, node)
+    return ret
 end
 
 local function VisitorTraverseChildren<Visitor, Node>(self: Visitor, node: Node)
@@ -908,7 +911,7 @@ local function VisitorTraverseChildren<Visitor, Node>(self: Visitor, node: Node)
     return
 end
 
-local function VisitorCollectChildren<Visitor, Node>(self: Visitor, node: Node)
+local function VisitorCollectChildren<Visitor, Node, R>(self: Visitor, node: Node): R
     local children = node.Value
     local len = #children
     local vals = table.create(len)
@@ -1239,7 +1242,7 @@ local SizeCalcVisitor: SizeCalcVisitor = {
 			if typeof(rhs) == "number" then
 				rs = rhs
 			else
-				rs = rhs(l)
+				rs = rhs(r)
 			end
 
 			return ls + rs
@@ -1428,7 +1431,7 @@ local SerializeVisitor: SerializeVisitor = {
         local ast_children = node.Value
         local byte_writer = raw_byte_writers[bytes_to_store_value(#ast_children)]
 
-        local str_to_num = table.create(#ast_children)
+        local str_to_num = (table.create(#ast_children) :: any) :: { [string]: number } 
         for i,v in ast_children do
             str_to_num[v.Value] = i
         end
@@ -1765,13 +1768,17 @@ local function str_to_ast(str)
     return ast
 end
 
-local function compile_serdes_str(str)
+local function compile_serdes_str<S, D>(str): (S | false, D | false, ASTValidRoot | false)
     local parsed_ast_root = str_to_ast(str)
-	local valid_ast_root: ASTValidRoot = ASTNodeAccept(parsed_ast_root, ValidateVisitor)
+	local valid_ast_root: ASTValidRoot? = ASTNodeAccept(parsed_ast_root, ValidateVisitor)
+	if not valid_ast_root then
+		return false, false, false
+	end
+
     local serializer = ASTNodeAccept(valid_ast_root, SerializeVisitor)
     local deserializer = ASTNodeAccept(valid_ast_root, DeserializeVisitor)
 
-    return serializer, deserializer, parsed_ast_root
+    return serializer, deserializer, valid_ast_root
 end
 
 local function pretty_compile(str)

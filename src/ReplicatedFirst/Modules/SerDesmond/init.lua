@@ -76,14 +76,14 @@ type ASTParseEnum = {
 }
 type ASTParseArray = {
     Type: "array",
-    Value: ASTParseTerminals,
+    Value: ASTParseHostNodes,
     Extra: false,
     TokenIndex: number,
     TokenSize: number
 }
 type ASTParsePeriodicArray = {
     Type: "periodic_array",
-    Value: ASTParseTerminals,
+    Value: ASTParseHostNodes,
     Extra: false,
     TokenIndex: number,
     TokenSize: number
@@ -104,7 +104,7 @@ type ASTParseSizeSpecifier = {
 }
 type ASTParseBinding = {
     Type: "binding",
-    Value: ASTParseTerminals & { ASTParseError },
+    Value: ASTParseTerminals,
     Extra: false,
     TokenIndex: number,
     TokenSize: number
@@ -133,6 +133,7 @@ type ASTParseStruct = {
 
 type ASTParseChildren = { ASTParseNodes }
 type ASTParseTerminal = ASTParseTypeLiteral | ASTParseStringLiteral | ASTParseNumberLiteral | ASTParseString | ASTParseError
+type ASTParseHostNodes = ASTParseTerminal & { ASTParseVector3 | ASTParseEnum | ASTParseArray | ASTParsePeriodicArray | ASTParseMap | ASTParseStruct | ASTParseErrorWChildren }
 type ASTParseTerminals = { ASTParseTerminal | ASTParseError | ASTParseErrorWChildren }
 type ASTParseNodes = 
       ASTParseError
@@ -196,14 +197,14 @@ type ASTValidEnum = {
 }
 type ASTValidArray = {
     Type: "array",
-    Value: ASTValidTerminals,
+    Value: ASTValidHostNodes,
     Extra: false,
     TokenIndex: number,
     TokenSize: number
 }
 type ASTValidPeriodicArray = {
     Type: "periodic_array",
-    Value: ASTValidTerminals,
+    Value: ASTValidHostNodes,
     Extra: false,
     TokenIndex: number,
     TokenSize: number
@@ -252,7 +253,8 @@ type ASTValidStruct = {
 }
 
 type ASTValidChildren = { ASTValidNodes }
-type ASTValidTerminal = ASTParseTypeLiteral | ASTParseStringLiteral | ASTParseNumberLiteral | ASTParseString
+type ASTValidTerminal = ASTValidTypeLiteral | ASTValidStringLiteral | ASTValidNumberLiteral | ASTValidString
+type ASTValidHostNodes = { ASTValidTerminal } & { ASTValidVector3 | ASTValidEnum | ASTValidArray | ASTValidPeriodicArray | ASTValidMap | ASTValidStruct }
 type ASTValidTerminals = { ASTValidTerminal }
 type ASTValidNodes = 
       ASTValidComment
@@ -629,6 +631,87 @@ local function new_node<T, R>(type: string, value: T, index: number, tokens_cons
 end
 
 
+
+local RootConstructs = {
+	type_literal = true,
+	string = true,
+	string_literal = true,
+	number_literal = true,
+	array = true,
+	periodic_array = true,
+	vector3 = true,
+	enum = true,
+	map = true,
+	struct = true,
+}
+
+local function ASTNodeIsValidHost<Node>(node: Node)
+	return RootConstructs[node.Type] == true
+end
+
+-- For visitors which return numbers for trivial nodes
+-- and functions for non-trivial nodes
+local function VisitorChildrenAreTrivial<Children>(children: Children)
+	if typeof(children) == "number" then
+		return true
+	end
+
+	for i,v in children do
+		if typeof(v) ~= "number" then
+			return false
+		end
+	end
+
+	return true
+end
+
+local function VisitorVisit<Visitor, Node, R>(self: Visitor, node: Node): R
+    local ty = node.Type
+    local visit_fn = self[ty]
+    if not visit_fn then
+        error(`Visitor missing impl for {node.Type}`)
+    end
+
+    return visit_fn(self, node)
+end
+
+local function ASTNodeAccept<Node, Visitor, R>(node: Node, visitor: Visitor): R
+	local ret = VisitorVisit(visitor, node)
+    return ret
+end
+
+local function VisitorTraverseChildren<Visitor, Node>(self: Visitor, node: Node)
+    local children = node.Value
+    local len = #children
+
+    for i = 1, len, 1 do
+        ASTNodeAccept(children[i], self)
+    end
+
+    return
+end
+
+local function VisitorCollectChildren<Visitor, Node, R>(self: Visitor, node: Node): R
+    local children = node.Value
+    local len = #children
+    local vals = table.create(len)
+
+    for i = 1, len, 1 do
+        -- Some weird incantation that lets a visitor be able to return any number of values without using tables
+		-- This behavior is desirable to let CollectChildren output a linear list of return values even if some
+		-- nodes return multiple values
+        -- E.G. the NodeSizeVisitor wants a linear list of node sizes
+        local val = { ASTNodeAccept(children[i], self) }
+        for _, v in val do
+            table.insert(vals, v)
+        end
+    end
+
+    return vals
+end
+
+
+
 -- Each function return the node and then the number of tokens it consumed
 -- The parse function handles closing parenthesis but not opening ones since each of these
 -- will be consuming tokens after the opening parenthesis
@@ -707,7 +790,7 @@ local function array(tokens: Tokens, idx: number)
 	local consumed_total = consumed + 1
 
 	for i,v in children do
-		if not ASTNodeIsRootConstruct(v) then
+		if not ASTNodeIsValidHost(v) then
 			if v.Type ~= "error" then
 				local err, _ = error(tokens, v.TokenIndex, `Unexpected {v.Value}, array can only contain read/write constructs`, v.TokenSize)
 				children[i] = err
@@ -723,7 +806,7 @@ local function periodic_array(tokens: Tokens, idx: number)
 	local consumed_total = consumed + 1
 
 	for i,v in children do
-		if not ASTNodeIsRootConstruct(v) then
+		if not ASTNodeIsValidHost(v) then
 			if v.Type ~= "error" then
 				local err, _ = error(tokens, v.TokenIndex, `Unexpected {v.Value}, array can only contain read/write constructs`, v.TokenSize)
 				children[i] = err
@@ -874,70 +957,6 @@ Keywords = {
 
 
 
---[[
-    Visitors
-]]
-
-local Visitor = { }
-Visitor.__index = Visitor
-
-
-local RootConstructs = {
-	type_literal = true,
-	string_literal = true,
-	array = true,
-	periodic_array = true,
-	vector3 = true,
-}
-
-function ASTNodeIsRootConstruct<Node>(node: Node)
-	return RootConstructs[node.Type] == true
-end
-
-local function VisitorVisit<Visitor, Node, R>(self: Visitor, node: Node): R
-    local ty = node.Type
-    local visit_fn = self[ty]
-    if not visit_fn then
-        error(`Visitor missing impl for {node.Type}`)
-    end
-
-    return visit_fn(self, node)
-end
-
-local function ASTNodeAccept<Node, Visitor, R>(node: Node, visitor: Visitor): R
-	local ret = VisitorVisit(visitor, node)
-    return ret
-end
-
-local function VisitorTraverseChildren<Visitor, Node>(self: Visitor, node: Node)
-    local children = node.Value
-    local len = #children
-
-    for i = 1, len, 1 do
-        ASTNodeAccept(children[i], self)
-    end
-
-    return
-end
-
-local function VisitorCollectChildren<Visitor, Node, R>(self: Visitor, node: Node): R
-    local children = node.Value
-    local len = #children
-    local vals = table.create(len)
-
-    for i = 1, len, 1 do
-        -- Some weird incantation that lets a visitor be able to return any number of values without using tables
-		-- This behavior is desirable to let CollectChildren output a linear list of return values even if some
-		-- nodes return multiple values
-        -- E.G. the NodeSizeVisitor wants a linear list of node sizes
-        local val = { ASTNodeAccept(children[i], self) }
-        for _, v in val do
-            table.insert(vals, v)
-        end
-    end
-
-    return vals
-end
 
 -- Visitor that can take in non-error-checked ASTs
 type ParseVisitor<
@@ -1274,20 +1293,52 @@ local SizeCalcVisitor: SizeCalcVisitor = {
 		end
 	end,
     array = function(self, node)
-        return sum(VisitorCollectChildren(self, node))
+		local children = VisitorCollectChildren(self, node)
+		if VisitorChildrenAreTrivial(children) then
+			return sum(VisitorCollectChildren(self, node))
+		else
+			return children
+		end
     end,
     periodic_array = function(self, node)
-        local child_sizes = VisitorCollectChildren(self, node)
-        -- local size_padding = table.remove(child_sizes)
-        local len_per_period = #child_sizes
-        local size_per_period = sum(child_sizes)
+        local children = VisitorCollectChildren(self, node)
+		if VisitorChildrenAreTrivial(children) then
+			-- local size_padding = table.remove(child_sizes)
+			local len_per_period = #children
+			local size_per_period = sum(children)
+	
+			return function(t: { unknown })
+				-- TODO: this breaks if a child is not a type literal
+				local periods = #t / len_per_period
+				assert(periods %1 == 0)
+				return periods * size_per_period + bytes_to_store_dynamic_size(periods)
+			end
+		else
+			local dynamics = { }
+			for i,v in children do
+				if typeof(v) == "function" then
+					dynamics[i] = v
+				end
+			end
 
-        return function(t: { })
-            -- TODO: this breaks if a child is not a type literal
-            local periods = #t / len_per_period
-            assert(periods %1 == 0)
-            return periods * size_per_period + bytes_to_store_dynamic_size(periods)
-        end
+			local len_per_period = #children
+
+			return function(t: { unknown })
+
+				local periods = #t / len_per_period
+				local total = 0
+				for i,v in t do
+					local size = children[(i - 1) % len_per_period + 1]
+					if typeof(size) == "function" then
+						total += size(v)
+					else
+						total += size
+					end
+				end
+
+				return periods + total + bytes_to_store_dynamic_size(periods)
+			end
+		end
     end,
 	map = function(self, node)
 		local children = VisitorCollectChildren(self, node)
@@ -1468,7 +1519,7 @@ local SerializeVisitor: SerializeVisitor = {
             local len = #t
             local s = write_size_specifier(len / period, b, idx)
 
-            for i = 0, len / period, period do
+            for i = 0, len - period, period do
                 for j = 1, period, 1 do
                     s += fns[j](t[i + j], b, idx + s)
                 end
@@ -1482,32 +1533,16 @@ local SerializeVisitor: SerializeVisitor = {
 		local children = VisitorCollectChildren(self, node)
 		local writer = children[1]
 
-		local f
-		local lhs_type = node.Value[1].Value[1].Type
-		if lhs_type == "string" then
-			f = function(t: { }, b: buffer, idx: number)
-				local len = count_table_keys(t)
-				local s = write_size_specifier(len, b, idx)
+		return function(t: { }, b: buffer, idx: number)
+			local len = count_table_keys(t)
+			local s = write_size_specifier(len, b, idx)
 
-				for i,v in t do
-					s += writer(i, v, b, idx + s)
-				end
-
-				return s
+			for i,v in t do
+				s += writer(i, v, b, idx + s)
 			end
-		else
-			f = function(t: { }, b: buffer, idx: number)
-				local s = write_size_specifier(#t, b, idx)
 
-				for i = 1, #t, 2 do
-					s += writer(t[i], t[i + 1], b, idx + s)
-				end
-
-				return s
-			end
+			return s
 		end
-
-		return f
 	end,
 	struct = function(self, node)
 		local children = VisitorCollectChildren(self, node)
@@ -1767,6 +1802,8 @@ end
 
 local function compile_serdes_str<S, D>(str): (S | false, D | false, ASTValidRoot | false)
     local parsed_ast_root = str_to_ast(str)
+	--PrintAST(parsed_ast_root)
+
 	local valid_ast_root: ASTValidRoot? = ASTNodeAccept(parsed_ast_root, ValidateVisitor)
 	if not valid_ast_root then
 		return false, false, false

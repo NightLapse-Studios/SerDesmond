@@ -29,9 +29,6 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
     local periodic_array_str = [[
         periodic_array(i8, i8)
     ]]
-	local nested_array_str = [[
-		array(array(i8, i8), i8)
-	]]
 	local map_str = [[
 		map(string: i8)
 	]]
@@ -63,8 +60,16 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
     local enum_str = [[
         enum("asd", "asdf", "asdfg")
     ]]
-	local general_types_str = [[
-		
+	local valid_host_nodes_str = [[
+		periodic_array(
+			struct("asdf": i8),
+			vector3(i8, i8, i8),
+			string,
+			array(i8, i8),
+			periodic_array(i8),
+			enum("one", "two", "three"),
+			map(i8: string)
+		)
 	]]
 
     local _, struct = pcall(function()
@@ -79,15 +84,17 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
     local _, p_array = pcall(function()
         return SerDesmond.PrettyCompile(periodic_array_str)
     end)
-	local _, nested_array = pcall(function()
-		return SerDesmond.PrettyCompile(nested_array_str)
-	end)
     local _, enum = pcall(function()
         return SerDesmond.PrettyCompile(enum_str)
     end)
     local _, comments_in_weird_spots = pcall(function()
         return SerDesmond.PrettyCompile(comments_in_weird_spots_str)
     end)
+    local _, valid_host_nodes = pcall(function()
+        return SerDesmond.PrettyCompile(valid_host_nodes_str)
+    end)
+
+	-- SerDesmond.PrintAST(valid_host_nodes)
 
 	T:Test("Size specifier", function()
 		local min_size, max_size = 1, 2^30 - 1
@@ -127,82 +134,123 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 	end)
     T:Test("Compile junk", function()
         -- TODO: These will fail with the reported error
-        T:ForContext("array",
-			T.Equal, typeof(array.Serialize), "function",
-			T.Equal, typeof(array.Deserialize), "function"
-		)
-        T:ForContext("periodic_array",
-			T.Equal, typeof(p_array.Serialize), "function",
-			T.Equal, typeof(p_array.Deserialize), "function"
-		)
-        T:ForContext("map",
-			T.Equal, typeof(map.Serialize), "function",
-			T.Equal, typeof(map.Deserialize), "function"
-		)
-		T:ForContext("struct",
-			T.Equal, typeof(struct.Serialize), "function",
-			T.Equal, typeof(struct.Deserialize), "function"
-		)
-		T:ForContext("enum",
-			T.Equal, typeof(enum.Serialize), "function",
-			T.Equal, typeof(enum.Deserialize), "function"
-		)
 		T:ForContext("comments in construct",
 			T.Equal, typeof(comments_in_weird_spots.Serialize), "function",
 			T.Equal, typeof(comments_in_weird_spots.Deserialize), "function"
 		)
+		T:ForContext("all host nodes in array",
+			T.Equal, typeof(valid_host_nodes.Serialize), "function",
+			T.Equal, typeof(valid_host_nodes.Deserialize), "function"
+		)
     end)
 
-    T:Test("Do the serdes junk", function()
-		local t, t2 = comments_in_weird_spots.Deserialize(comments_in_weird_spots.Serialize({a = 1}, Vector3.new(2, 3, 4)))
-        T:ForContext("comments in construct",
-            T.Equal, t.a, 1,
-			T.Equal, t2, Vector3.new(2, 3, 4) 
-        )
-
+	T:Test("Enum", function()
+		T:ForContext("Compile",
+			T.Equal, typeof(enum.Serialize), "function",
+			T.Equal, typeof(enum.Deserialize), "function"
+		)
 		local t = enum.Deserialize(enum.Serialize({"asd", "asd", "asdfg"}))
-        T:ForContext("enum",
+        T:ForContext("SerDes",
             T.Equal, t[1], "asd",
             T.Equal, t[2], "asd",
             T.Equal, t[3], "asdfg"
         )
-
+	end)
+	T:Test("Array", function()
+        T:ForContext("Compile",
+			T.Equal, typeof(array.Serialize), "function",
+			T.Equal, typeof(array.Deserialize), "function"
+		)
+        local t = array.Deserialize(array.Serialize({1, 2}))
+        T:ForContext("SerDes",
+            T.Equal, t[1], 1,
+            T.Equal, t[2], 2
+        )
+		local stuff = valid_host_nodes.Deserialize(valid_host_nodes.Serialize({
+			{asdf = 1},
+			Vector3.new(2, 3, 4),
+			"yooo",
+			{5, 6},
+			{7, 8, 9},
+			{"one", "two", "three"},
+			{[4] = "10", [5] = "11", [6] = "12"}
+		}))
+		T:ForContext("Contains all host nodes: types",
+			T.Equal, typeof(stuff[1]), "table",
+			T.Equal, typeof(stuff[2]), "Vector3",
+			T.Equal, typeof(stuff[3]), "string",
+			T.Equal, typeof(stuff[4]), "table",
+			T.Equal, typeof(stuff[5]), "table",
+			T.Equal, typeof(stuff[6]), "table",
+			T.Equal, typeof(stuff[7]), "table"
+		)
+		T:ForContext("Contains all hose nodes: values",
+			T.Equal, stuff[1].asdf, 1,
+			T.Equal, stuff[2].X, 2,
+			T.Equal, stuff[2].Y, 3,
+			T.Equal, stuff[2].Z, 4,
+			T.Equal, stuff[3], "yooo",
+			T.Equal, stuff[4][1], 5,
+			T.Equal, stuff[4][2], 6,
+			T.Equal, stuff[5][1], 7,
+			T.Equal, stuff[5][2], 8,
+			T.Equal, stuff[5][3], 9,
+			T.Equal, stuff[6][1], "one",
+			T.Equal, stuff[6][2], "two",
+			T.Equal, stuff[6][3], "three",
+			T.Equal, stuff[7][1], nil,
+			T.Equal, stuff[7][2], nil,
+			T.Equal, stuff[7][3], nil,
+			T.Equal, stuff[7][4], "10",
+			T.Equal, stuff[7][5], "11",
+			T.Equal, stuff[7][6], "12"
+		)
+	end)
+	T:Test("Periodic Array", function()
+        T:ForContext("Compile",
+			T.Equal, typeof(p_array.Serialize), "function",
+			T.Equal, typeof(p_array.Deserialize), "function"
+		)
+        local t = p_array.Deserialize(p_array.Serialize({2, 3, 4, 5}))
+        T:ForContext("SerDes",
+			T.Equal, t[1], 2,
+			T.Equal, t[2], 3,
+			T.Equal, t[3], 4,
+			T.Equal, t[4], 5
+        )
+	end)
+	T:Test("Map", function()
+        T:ForContext("Compile",
+			T.Equal, typeof(map.Serialize), "function",
+			T.Equal, typeof(map.Deserialize), "function"
+		)
+		local t = map.Deserialize(map.Serialize({one = 1, two = 2}))
+        T:ForContext("SerDes",
+            T.Equal, t.one, 1,
+            T.Equal, t.two, 2
+        )
+	end)
+	T:Test("Struct", function()
+        T:ForContext("Compile",
+			T.Equal, typeof(struct.Serialize), "function",
+			T.Equal, typeof(struct.Deserialize), "function"
+		)
 		local t = struct.Deserialize(struct.Serialize({a = 1, b = 2, c = 3, [1] = {1, 3.14}}))
-		T:ForContext("struct",
+        T:ForContext("SerDes",
 			T.Equal, t.a, 1,
 			T.Equal, t.b, 2,
 			T.Equal, t.c, 3,
 			T.Equal, typeof(t[1]), "table",
 			T.Equal, t[1][1], 1,
 			T.Equal, t[1][2], 3.140000104904175
-		)
-        local t = array.Deserialize(array.Serialize({1, 2}))
-        T:ForContext("array",
-            T.Equal, t[1], 1,
-            T.Equal, t[2], 2
         )
-
-        t = p_array.Deserialize(p_array.Serialize({1, 2, 3, 4}))
-        T:ForContext("periodic array",
-            T.Equal, t[1], 1,
-            T.Equal, t[2], 2,
-            T.Equal, t[3], 3,
-            T.Equal, t[4], 4
+	end)
+	T:Test("Comments", function()
+		local t, t2 = comments_in_weird_spots.Deserialize(comments_in_weird_spots.Serialize({a = 1}, Vector3.new(2, 3, 4)))
+        T:ForContext("In weird places",
+            T.Equal, t.a, 1,
+			T.Equal, t2, Vector3.new(2, 3, 4) 
         )
-
-		local t = nested_array.Deserialize(nested_array.Serialize({{1, 2}, 3}))
-		T:ForContext("nested array",
-			T.Equal, typeof(t[1]), "table",
-			T.Equal, t[1][1], 1,
-			T.Equal, t[1][2], 2,
-			T.Equal, t[2], 3
-		)
-
-		local t = map.Deserialize(map.Serialize({one = 1, two = 2}))
-		T:ForContext("map",
-			T.Equal, t.one, 1,
-			T.Equal, t.two, 2
-		)
 	end)
 end
 

@@ -460,16 +460,12 @@ local NodeConstructors: {
 	type_literal: NodeConstructor<ASTParseTypeLiteral>,
 	string_literal: NodeConstructor<ASTParseStringLiteral>,
 	number_literal: NodeConstructor<ASTParseNumberLiteral | ASTParseError>,
-	string: NodeConstructor<ASTParseString>,
-	enum: NodeConstructor<ASTParseEnum>,
-	array: NodeConstructor<ASTParseArray>,
-	periodic_array: NodeConstructor<ASTParsePeriodicArray>,
-	map: NodeConstructor<ASTParseMap | ASTParseError>,
-	struct: NodeConstructor<ASTParseStruct>,
-	vector3: NodeConstructor<ASTParseVector3 | ASTParseError>,
 	-- TODO: This was designed out but may be used again for predicting max sizes?
 	size_specifier: NodeConstructor<ASTParseSizeSpecifier | ASTParseError>,
 	max_size: NodeConstructor<ASTParseSizeSpecifier | ASTParseError>,
+}
+
+local Keywords: {
 	binding: NodeConstructor<ASTParseBinding, ASTValidTerminals, number>,
 	i8: NodeConstructor<ASTParseTypeLiteral>,
 	i16: NodeConstructor<ASTParseTypeLiteral>,
@@ -481,8 +477,14 @@ local NodeConstructors: {
 	f16: NodeConstructor<ASTParseTypeLiteral>,
 	f32: NodeConstructor<ASTParseTypeLiteral>,
 	f64: NodeConstructor<ASTParseTypeLiteral>,
+	string: NodeConstructor<ASTParseString>,
+	enum: NodeConstructor<ASTParseEnum>,
+	array: NodeConstructor<ASTParseArray>,
+	periodic_array: NodeConstructor<ASTParsePeriodicArray>,
+	map: NodeConstructor<ASTParseMap | ASTParseError>,
+	struct: NodeConstructor<ASTParseStruct>,
+	vector3: NodeConstructor<ASTParseVector3 | ASTParseError>,
 }
-
 
 local function node_from_token<R>(tokens: Tokens, idx: number): (R | ASTParseStringLiteral | ASTParseNumberLiteral | ASTParseError | ASTParseErrorWChildren | nil, number)
     local token = tokens[idx]
@@ -500,7 +502,7 @@ local function node_from_token<R>(tokens: Tokens, idx: number): (R | ASTParseStr
 		return NodeConstructors.number_literal(tokens, idx)
 	end
 
-    local node_ctor = NodeConstructors[token]
+    local node_ctor = Keywords[token]
 
     if not node_ctor then
         if tokens[idx + 1] == "(" then
@@ -611,7 +613,10 @@ local function parse_token_stream(tokens: { string })
     return NodeConstructors.root(tokens, 1)
 end
 
-local function new_node(type: string, value: unknown, index: number, tokens_consumed: number, extra: string?): ASTParseNodes
+local function new_node<T, R>(type: string, value: T, index: number, tokens_consumed: number, extra: string?): R
+	-- @Types
+	-- Ideally calling this function with data that doesn't align with the node types wouldn't work
+	-- but for some reason it either always works or never works depending on the signature
     local node = {
         Type = type,
         Value = value,
@@ -630,15 +635,15 @@ end
 
 local function root(tokens: Tokens, idx: number)
 	local children, consumed = parse_chunk(tokens, 1)
-	local node = new_node("root", children, idx, consumed)
+	local node: ASTParseRoot = new_node("root", children, idx, consumed)
 	return node, consumed
 end
 local function error(tokens: Tokens, idx: number, err: string, size: number)
-	local node = new_node("error", tokens[idx], idx, size, err) :: ASTParseError
+	local node: ASTParseError = new_node("error", tokens[idx], idx, size, err)
 	return node, size
 end
 local function error_with_children(tokens: Tokens, idx: number, err: string, token_size: number, children: ASTParseChildren)
-	local node = new_node("error", children, idx, token_size, err) :: ASTParseErrorWChildren
+	local node: ASTParseErrorWChildren = new_node("error", children, idx, token_size, err)
 	return node, token_size
 end
 local function error_with_unparsed_children(tokens: Tokens, idx: number, err: string)
@@ -653,11 +658,11 @@ local function comment(tokens: Tokens, idx: number)
 	return nil, 1
 end
 local function type_literal(tokens: Tokens, idx: number)
-	local node = new_node("type_literal", tokens[idx], idx, 1) :: ASTParseTypeLiteral
+	local node: ASTParseTypeLiteral = new_node("type_literal", tokens[idx], idx, 1)
 	return node, 1
 end
 local function string_literal(tokens: Tokens, idx: number)
-	local node = new_node("string_literal", tokens[idx + 1], idx, 3) :: ASTParseStringLiteral
+	local node: ASTParseStringLiteral = new_node("string_literal", tokens[idx + 1], idx, 3)
 	return node, 3
 end
 local function number_literal(tokens: Tokens, idx: number)
@@ -670,14 +675,14 @@ local function number_literal(tokens: Tokens, idx: number)
 			primitive = "i32"
 		end
 
-        local node = new_node("number_literal", n, idx, 1, primitive) :: ASTParseNumberLiteral
+        local node: ASTParseNumberLiteral = new_node("number_literal", n, idx, 1, primitive)
 		return node, 1
 	else
 		return error(tokens, idx, "Internal error: passed non-number to number_literal", 1)
 	end
 end
 local function _string(tokens: Tokens, idx: number)
-    local node = new_node("string", false, idx, 1) :: ASTParseString
+    local node: ASTParseString = new_node("string", false, idx, 1)
 	return node, 1
 end
 local function enum(tokens: Tokens, idx: number)
@@ -693,7 +698,7 @@ local function enum(tokens: Tokens, idx: number)
 
 	-- Specifies the size of the numbers stored in the buffer, not the length
 	-- table.insert(children, new_node("size_specifier", #children, -1, 0))
-    local node = new_node("enum", children, idx, consumed_total) :: ASTParseEnum
+    local node: ASTParseEnum = new_node("enum", children, idx, consumed_total)
 
 	return node, consumed_total
 end
@@ -710,7 +715,7 @@ local function array(tokens: Tokens, idx: number)
 		end
 	end
 
-    local node = new_node("array", children, idx, consumed_total) :: ASTParseArray
+    local node: ASTParseArray = new_node("array", children, idx, consumed_total)
 	return node, consumed_total
 end
 local function periodic_array(tokens: Tokens, idx: number)
@@ -726,7 +731,7 @@ local function periodic_array(tokens: Tokens, idx: number)
 		end
 	end
 
-    local node = new_node("periodic_array", children, idx, consumed_total) :: ASTParsePeriodicArray
+    local node: ASTParsePeriodicArray = new_node("periodic_array", children, idx, consumed_total)
 	return node, consumed_total
 end
 local function map(tokens: Tokens, idx: number)
@@ -744,7 +749,7 @@ local function map(tokens: Tokens, idx: number)
 		return error(tokens, idx, "map must contain a type binding", consumed_total)
 	end
 
-    local node = new_node("map", children, idx, consumed_total) :: ASTParseMap
+    local node: ASTParseMap = new_node("map", children, idx, consumed_total)
 	return node, consumed_total
 end
 local function struct(tokens: Tokens, idx: number)
@@ -758,7 +763,7 @@ local function struct(tokens: Tokens, idx: number)
 		end
 	end
 
-    local node = new_node("struct", children, idx, consumed_total) :: ASTParseStruct
+    local node: ASTParseStruct = new_node("struct", "a", idx, consumed_total)
 	return node, consumed_total
 end
 local function vector3(tokens: Tokens, idx: number)
@@ -777,7 +782,7 @@ local function vector3(tokens: Tokens, idx: number)
 		return error(tokens, idx, "vector3 expects 3 type literals", consumed_total)
 	end
 	
-    local node = new_node("vector3", children, idx, consumed_total) :: ASTParseVector3
+    local node: ASTParseVector3 = new_node("vector3", children, idx, consumed_total)
 	return node, consumed_total
 end
 local function size_specifier(tokens: Tokens, idx: number)
@@ -792,14 +797,14 @@ local function size_specifier(tokens: Tokens, idx: number)
 		return error(tokens, idx, "Expected number for size specifier", 3)
 	end
 	
-    local node = new_node("size_specifier", size, idx, 3) :: ASTParseSizeSpecifier
+    local node: ASTParseSizeSpecifier = new_node("size_specifier", size, idx, 3)
 	return node, 3
 end
 local function max_size(tokens: Tokens, idx: number)
 	return size_specifier(tokens, idx)
 end
 local function binding(tokens: Tokens, idx: number, children: ASTValidTerminals, token_size: number)
-    local node = new_node("binding", children, idx, token_size) :: ASTParseBinding
+    local node: ASTParseBinding = new_node("binding", children, idx, token_size)
 	return node, token_size
 end
 local function i8(tokens: Tokens, idx: number)
@@ -842,15 +847,11 @@ NodeConstructors = {
 	type_literal = type_literal,
 	string_literal = string_literal,
 	number_literal = number_literal,
-	string = _string,
-	enum = enum,
-	array = array,
-	periodic_array = periodic_array,
-	map = map,
-	struct = struct,
-	vector3 = vector3,
 	size_specifier = size_specifier,
 	max_size = max_size,
+}
+
+Keywords = {
 	binding = binding,
 	i8 = i8,
 	i16 = i16,
@@ -862,6 +863,13 @@ NodeConstructors = {
 	f16 = f16,
 	f32 = f32,
 	f64 = f64,
+	string = _string,
+	enum = enum,
+	array = array,
+	periodic_array = periodic_array,
+	map = map,
+	struct = struct,
+	vector3 = vector3,
 }
 
 

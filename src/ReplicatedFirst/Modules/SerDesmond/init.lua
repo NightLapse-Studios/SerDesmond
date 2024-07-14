@@ -528,7 +528,7 @@ local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | AS
         consumed_total += (consumed + 1)
         idx += consumed
 
-        return NodeConstructors.binding(tokens, idx, {lhs, rhs}, consumed_total)
+        return Keywords.binding(tokens, idx, {lhs, rhs}, consumed_total)
     else
         rhs, consumed = node_from_token(tokens, idx)
         consumed_total += consumed
@@ -763,7 +763,7 @@ local function struct(tokens: Tokens, idx: number)
 		end
 	end
 
-    local node: ASTParseStruct = new_node("struct", "a", idx, consumed_total)
+    local node: ASTParseStruct = new_node("struct", children, idx, consumed_total)
 	return node, consumed_total
 end
 local function vector3(tokens: Tokens, idx: number)

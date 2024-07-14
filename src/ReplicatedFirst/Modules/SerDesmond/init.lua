@@ -1018,7 +1018,7 @@ type PrintVisitor = ParseVisitor<
 	nil
 >
 
-local function PrintAST(ast: ASTParseRoot)
+local function PrintAST(ast: ASTParseRoot | ASTValidRoot)
     local indent = 0
     local function print_desc(self, desc: string)
         local out = ""
@@ -1793,6 +1793,10 @@ end
 
 function mod.PrettyCompile(str)
 	return pretty_compile(str)
+end
+
+function mod.PrintAST(ast: ASTParseRoot | ASTValidRoot)
+	PrintAST(ast)
 end
 
 mod.write_size_specifier = write_size_specifier

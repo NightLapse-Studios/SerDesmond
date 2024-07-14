@@ -60,8 +60,8 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
     local enum_str = [[
         enum("asd", "asdf", "asdfg")
     ]]
-	local valid_host_nodes_str = [[
-		periodic_array(
+	local array_contains_host_nodes_str = [[
+		array(
 			struct("asdf": i8),
 			vector3(i8, i8, i8),
 			string,
@@ -90,8 +90,8 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
     local _, comments_in_weird_spots = pcall(function()
         return SerDesmond.PrettyCompile(comments_in_weird_spots_str)
     end)
-    local _, valid_host_nodes = pcall(function()
-        return SerDesmond.PrettyCompile(valid_host_nodes_str)
+    local _, array_contains_host_nodes = pcall(function()
+        return SerDesmond.PrettyCompile(array_contains_host_nodes_str)
     end)
 
 	-- SerDesmond.PrintAST(valid_host_nodes)
@@ -139,8 +139,8 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			T.Equal, typeof(comments_in_weird_spots.Deserialize), "function"
 		)
 		T:ForContext("all host nodes in array",
-			T.Equal, typeof(valid_host_nodes.Serialize), "function",
-			T.Equal, typeof(valid_host_nodes.Deserialize), "function"
+			T.Equal, typeof(array_contains_host_nodes.Serialize), "function",
+			T.Equal, typeof(array_contains_host_nodes.Deserialize), "function"
 		)
     end)
 
@@ -166,7 +166,7 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
             T.Equal, t[1], 1,
             T.Equal, t[2], 2
         )
-		local stuff = valid_host_nodes.Deserialize(valid_host_nodes.Serialize({
+		local stuff = array_contains_host_nodes.Deserialize(array_contains_host_nodes.Serialize({
 			{asdf = 1},
 			Vector3.new(2, 3, 4),
 			"yooo",

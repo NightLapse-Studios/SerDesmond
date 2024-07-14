@@ -1220,8 +1220,8 @@ type SizeCalcVisitor = ValidVisitor<
 	number,
 	SizeCalcFn<string>,
 	SizeCalcFn<{string}>,
-	number,
-	SizeCalcFn<{}>,
+	number | SizeCalcFn<{unknown}>,
+	SizeCalcFn<{unknown}>,
 	number,
 	number,
 	(number | SizeCalcFn<unknown>, number | SizeCalcFn<unknown>) -> number,
@@ -1297,7 +1297,26 @@ local SizeCalcVisitor: SizeCalcVisitor = {
 		if VisitorChildrenAreTrivial(children) then
 			return sum(VisitorCollectChildren(self, node))
 		else
-			return children
+			local dynamics = { }
+			for i,v in children do
+				if typeof(v) == "function" then
+					dynamics[i] = v
+				end
+			end
+
+			return function(t: { unknown })
+				local total = 0
+				for i,v in t do
+					local size = children[i]
+					if typeof(size) == "function" then
+						total += size(v)
+					else
+						total += size
+					end
+				end
+
+				return total
+			end
 		end
     end,
     periodic_array = function(self, node)

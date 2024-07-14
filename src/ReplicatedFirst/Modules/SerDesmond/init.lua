@@ -1295,7 +1295,7 @@ local SizeCalcVisitor: SizeCalcVisitor = {
     array = function(self, node)
 		local children = VisitorCollectChildren(self, node)
 		if VisitorChildrenAreTrivial(children) then
-			return sum(VisitorCollectChildren(self, node))
+			return sum(children)
 		else
 			local dynamics = { }
 			for i,v in children do

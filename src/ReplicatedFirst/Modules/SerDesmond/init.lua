@@ -474,8 +474,6 @@ local Keywords: {
 	u8: NodeConstructor<ASTParseTypeLiteral>,
 	u16: NodeConstructor<ASTParseTypeLiteral>,
 	u32: NodeConstructor<ASTParseTypeLiteral>,
-	f8: NodeConstructor<ASTParseTypeLiteral>,
-	f16: NodeConstructor<ASTParseTypeLiteral>,
 	f32: NodeConstructor<ASTParseTypeLiteral>,
 	f64: NodeConstructor<ASTParseTypeLiteral>,
 	string: NodeConstructor<ASTParseString>,
@@ -933,12 +931,6 @@ end
 local function u32(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
-local function f8(tokens: Tokens, idx: number)
-	return type_literal(tokens, idx)
-end
-local function f16(tokens: Tokens, idx: number)
-	return type_literal(tokens, idx)
-end
 local function f32(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
@@ -967,8 +959,6 @@ Keywords = {
 	u8 = u8,
 	u16 = u16,
 	u32 = u32,
-	f8 = f8,
-	f16 = f16,
 	f32 = f32,
 	f64 = f64,
 	string = _string,

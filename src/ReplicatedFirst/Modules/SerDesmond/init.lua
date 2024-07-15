@@ -1,4 +1,5 @@
 --!strict
+--!native
 
 local is_separator = require(script.is_separator)
 local Tokenizer = require(script.Tokenizer)
@@ -1872,17 +1873,5 @@ end
 
 mod.write_size_specifier = write_size_specifier
 mod.read_size_specifier = read_size_specifier
-mod.str_to_ast = str_to_ast
-mod.ValidateVisitor = ValidateVisitor
-mod.SerializeVisitor = SerializeVisitor
-mod.DeserializeVisitor = DeserializeVisitor
-
-function mod.ValidateSerDesStr(str)
-    local parsed_ast_root = str_to_ast(str)
-
-	local valid_ast_root: ASTValidRoot? = ASTNodeAccept(parsed_ast_root, ValidateVisitor)
-	return valid_ast_root
-end
-
 
 return mod

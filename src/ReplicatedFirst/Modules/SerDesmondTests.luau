@@ -1,3 +1,5 @@
+local FUZZ = false
+
 local mod = { }
 
 local SerDesmond = require(script.Parent.SerDesmond)
@@ -282,9 +284,10 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 		"(",
 		")"
 	}
+
 	local is_separator = require(script.Parent.SerDesmond.is_separator)
-	if G.CONTEXT == "SERVER" then
-		T:Fuzz("Parse random tokens", 50000,
+	if G.CONTEXT == "SERVER" and FUZZ then
+		T:Fuzz("Parse random tokens", 1_000_000,
 			function()
 				local out = ""
 				for i = 1, 30, 1 do

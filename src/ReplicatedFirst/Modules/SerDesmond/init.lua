@@ -861,9 +861,16 @@ local function struct(tokens: Tokens, idx: number)
 	if #children > 0 then
 		for i,v in children do
 			local child_type = v.Type
-			if child_type ~= "binding" and child_type ~= "error" then
-				local err, _ = error(tokens, v.TokenIndex, "dictionaries can only contain bindings", v.TokenSize)
-				children[i] = err
+			if child_type ~= "binding" then
+				if child_type ~= "error" then
+					local err, _ = error(tokens, v.TokenIndex, "dictionaries can only contain bindings", v.TokenSize)
+					children[i] = err
+				end
+			else
+				local lhs_type = v.Value[1].Type
+				if lhs_type ~= "error" and lhs_type ~= "number_literal" and lhs_type ~= "string_literal" then
+					return error(tokens, idx, "left hand side of struct bindings cannot be a type that becomes a table", consumed_total)
+				end
 			end
 		end
 	else

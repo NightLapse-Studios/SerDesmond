@@ -1,5 +1,4 @@
 --!strict
---!native
 
 local is_separator = require(script.is_separator)
 local Tokenizer = require(script.Tokenizer)
@@ -465,10 +464,10 @@ local NodeConstructors: {
 	-- TODO: This was designed out but may be used again for predicting max sizes?
 	size_specifier: NodeConstructor<ASTParseSizeSpecifier | ASTParseError>,
 	max_size: NodeConstructor<ASTParseSizeSpecifier | ASTParseError>,
+	binding: NodeConstructor<ASTParseBinding, ASTValidTerminals, number>,
 }
 
 local Keywords: {
-	binding: NodeConstructor<ASTParseBinding, ASTValidTerminals, number>,
 	i8: NodeConstructor<ASTParseTypeLiteral>,
 	i16: NodeConstructor<ASTParseTypeLiteral>,
 	i32: NodeConstructor<ASTParseTypeLiteral>,
@@ -482,14 +481,18 @@ local Keywords: {
 	string: NodeConstructor<ASTParseString>,
 	enum: NodeConstructor<ASTParseEnum>,
 	array: NodeConstructor<ASTParseArray>,
-	periodic_array: NodeConstructor<ASTParsePeriodicArray>,
+	periodic_array: NodeConstructor<ASTParsePeriodicArray | ASTParseError>,
 	map: NodeConstructor<ASTParseMap | ASTParseError>,
-	struct: NodeConstructor<ASTParseStruct>,
+	struct: NodeConstructor<ASTParseStruct | ASTParseError>,
 	vector3: NodeConstructor<ASTParseVector3 | ASTParseError>,
 }
 
 local function node_from_token<R>(tokens: Tokens, idx: number): (R | ASTParseStringLiteral | ASTParseNumberLiteral | ASTParseError | ASTParseErrorWChildren | nil, number)
     local token = tokens[idx]
+	if not token then
+		return NodeConstructors.error(tokens, idx - 1, "Unexpected end of input", 1), 0
+	end
+
 
     if string.sub(token, 1, 1) == "#" then
 		-- Really a no-op
@@ -530,7 +533,7 @@ local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | AS
         consumed_total += (consumed + 1)
         idx += consumed
 
-        return Keywords.binding(tokens, idx, {lhs, rhs}, consumed_total)
+        return NodeConstructors.binding(tokens, idx, {lhs, rhs}, consumed_total)
     else
         rhs, consumed = node_from_token(tokens, idx)
         consumed_total += consumed
@@ -541,14 +544,24 @@ local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | AS
 end
 
 local function parse_binding_list(tokens: Tokens, idx: number): ({ASTParseBinding | ASTParseError | ASTParseErrorWChildren}, number)
+    local children: {ASTParseBinding | ASTParseError | ASTParseErrorWChildren}, consumed_total = { }, 1
+	
     if tokens[idx] ~= "(" then
-        return NodeConstructors.error(tokens, idx, `Unexpected token {tokens[idx]}: missing ( to open binding list`, 0)
+		local err = NodeConstructors.error(tokens, idx, `Unexpected token {tokens[idx]}: missing ( to open binding list`, 1)
+		table.insert(children, err)
+        return children, 1
     end
 
-    local children: {ASTParseBinding | ASTParseErrorWChildren}, consumed_total = { }, 1
     idx += 1
 
     while true do
+		local token = tokens[idx]
+		if not token then
+			local err = NodeConstructors.error(tokens, idx - 1, "Unexpected end of input", 1)
+			table.insert(children, err)
+			return children, consumed_total
+		end
+
         if tokens[idx] == ")" then
             break
         end
@@ -805,11 +818,15 @@ local function periodic_array(tokens: Tokens, idx: number)
 	local children, consumed = parse_chunk(tokens, idx + 1)
 	local consumed_total = consumed + 1
 
-	for i,v in children do
-		if not ASTNodeIsValidHost(v) then
-			if v.Type ~= "error" then
-				local err, _ = error(tokens, v.TokenIndex, `Unexpected {v.Value}, array can only contain read/write constructs`, v.TokenSize)
-				children[i] = err
+	if #children == 0 then
+		return error(tokens, idx, "periodic_array must contain at least one serializable object", consumed_total)
+	else
+		for i,v in children do
+			if not ASTNodeIsValidHost(v) then
+				if v.Type ~= "error" then
+					local err, _ = error(tokens, v.TokenIndex, `Unexpected {v.Value}, array can only contain read/write constructs`, v.TokenSize)
+					children[i] = err
+				end
 			end
 		end
 	end
@@ -826,9 +843,12 @@ local function map(tokens: Tokens, idx: number)
 			local err, _ = error(tokens, v.TokenIndex, "map can only have one binding", v.TokenSize)
 			children[i] = err
 		end
+	elseif #children == 0 then
+		return error(tokens, idx, "map must contain a type binding", consumed_total)
 	end
 
-	if children[1].Type ~= "binding" then
+	local child_type = children[1].Type
+	if child_type ~= "binding" and child_type ~= "error" then
 		return error(tokens, idx, "map must contain a type binding", consumed_total)
 	end
 
@@ -839,11 +859,16 @@ local function struct(tokens: Tokens, idx: number)
 	local children, consumed = parse_binding_list(tokens, idx + 1)
 	local consumed_total = consumed + 1
 
-	for i,v in children do
-		if v.Type ~= "binding" then
-			local err, _ = error(tokens, v.TokenIndex, "dictionaries can only contain bindings", v.TokenSize)
-			children[i] = err
+	if #children > 0 then
+		for i,v in children do
+			local child_type = v.Type
+			if child_type ~= "binding" and child_type ~= "error" then
+				local err, _ = error(tokens, v.TokenIndex, "dictionaries can only contain bindings", v.TokenSize)
+				children[i] = err
+			end
 		end
+	else
+		return error(tokens, idx, "struct must contain at least one binding", consumed_total)
 	end
 
     local node: ASTParseStruct = new_node("struct", children, idx, consumed_total)
@@ -932,10 +957,10 @@ NodeConstructors = {
 	number_literal = number_literal,
 	size_specifier = size_specifier,
 	max_size = max_size,
+	binding = binding,
 }
 
 Keywords = {
-	binding = binding,
 	i8 = i8,
 	i16 = i16,
 	i32 = i32,
@@ -1857,5 +1882,17 @@ end
 
 mod.write_size_specifier = write_size_specifier
 mod.read_size_specifier = read_size_specifier
+mod.str_to_ast = str_to_ast
+mod.ValidateVisitor = ValidateVisitor
+mod.SerializeVisitor = SerializeVisitor
+mod.DeserializeVisitor = DeserializeVisitor
+
+function mod.ValidateSerDesStr(str)
+    local parsed_ast_root = str_to_ast(str)
+
+	local valid_ast_root: ASTValidRoot? = ASTNodeAccept(parsed_ast_root, ValidateVisitor)
+	return valid_ast_root
+end
+
 
 return mod

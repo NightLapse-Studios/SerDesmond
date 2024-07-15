@@ -72,6 +72,8 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 		)
 	]]
 
+	-- SerDesmond.Compile("struct ( i8 : f8 )")
+
     local _, struct = pcall(function()
         return SerDesmond.PrettyCompile(struct_str)
     end)
@@ -252,6 +254,50 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			T.Equal, t2, Vector3.new(2, 3, 4) 
         )
 	end)
+
+	local Tokens = {
+		"i8",
+		"i16",
+		"i32",
+		"u8",
+		"u16",
+		"u32",
+		"f8",
+		"f16",
+		"f32",
+		"f64",
+		"string",
+		"enum",
+		"array",
+		"periodic_array",
+		"map",
+		"struct",
+		"vector3",
+		",",
+		":",
+		"(",
+		")",
+		",",
+		":",
+		"(",
+		")"
+	}
+	local is_separator = require(script.Parent.SerDesmond.is_separator)
+	if G.CONTEXT == "SERVER" then
+		T:Fuzz("Parse random tokens", 50000,
+			function()
+				local out = ""
+				for i = 1, 30, 1 do
+					out ..= Tokens[math.random(1, #Tokens)] .. " "
+				end
+
+				return out
+			end,
+			function(str: string)
+				local s, d, _ = SerDesmond.Compile(str)
+			end
+		)
+	end
 end
 
 return mod

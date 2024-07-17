@@ -293,6 +293,9 @@ type ASTValidNodes =
 	| ASTValidString
 	| ASTValidStruct
 
+local POUND_BYTE = string.byte("#")
+local TAB_BYTE = string.byte("\t")
+
 --[[
     Setup and helper funcitons
 ]]
@@ -528,7 +531,7 @@ local function node_from_token<R>(
 		return NodeConstructors.error(tokens, idx - 1, "Unexpected end of input", 1), 0
 	end
 
-	if string.sub(token, 1, 1) == "#" then
+	if string.byte(token, 1, 1) == POUND_BYTE then
 		-- Really a no-op
 		return NodeConstructors.comment(tokens, idx)
 	end
@@ -610,7 +613,7 @@ local function parse_binding_list(
 			break
 		end
 
-		if string.sub(tokens[idx], 1, 1) == "#" then
+		if string.byte(tokens[idx], 1, 1) == POUND_BYTE then
 			idx += 1
 			consumed_total += 1
 			continue
@@ -1152,8 +1155,8 @@ local function AnnotateSource(node: ASTParseNodes, src: string, locations: { Tok
 
 			local err_highlighter = ""
 			for i = last_newline_index, location.Start.Index - 1 do
-				local a = string.sub(src, i, i)
-				if a == "\t" then
+				local a = string.byte(src, i, i)
+				if a == TAB_BYTE then
 					err_highlighter ..= "\t"
 				else
 					err_highlighter ..= " "

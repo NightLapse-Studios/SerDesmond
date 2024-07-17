@@ -1,7 +1,5 @@
-local FUZZ = false
+local FUZZ = true
 local NORMAL_TESTS = true
-
-print("\x1b[31tttm")
 
 local mod = {}
 
@@ -97,8 +95,6 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 		local _, array_contains_host_nodes = pcall(function()
 			return SerDesmond.PrettyCompile(array_contains_host_nodes_str)
 		end)
-
-		-- SerDesmond.PrintAST(valid_host_nodes)
 
 		T:Test("Size specifier", function()
 			local min_size, max_size = 1, 2 ^ 30 - 1
@@ -357,6 +353,16 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 
 	local is_separator = require(script.Parent.SerDesmond.is_separator)
 	if G.CONTEXT == "SERVER" and FUZZ then
+		T:Fuzz("Random string", 100_000, function()
+			local s = ""
+			for i = 1, math.random(10, 100), 1 do
+				s ..= string.char(math.random(0, 255))
+			end
+			return s
+		end, function(str: string)
+			local s, d, _ = SerDesmond.Compile(str, false)
+		end)
+
 		--[[
 			Parsing tests
 		]]
@@ -388,19 +394,16 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			")",
 		}
 
-		--[[ 		T:Fuzz("Random tokens fuzz", 100_000,
-			function()
-				local out = ""
-				for i = 1, 30, 1 do
-					out ..= Tokens[math.random(1, #Tokens)] .. " "
-				end
-
-				return out
-			end,
-			function(str: string)
-				local s, d, _ = SerDesmond.Compile(str)
+		T:Fuzz("Random tokens fuzz", 100_000, function()
+			local out = ""
+			for i = 1, 30, 1 do
+				out ..= Tokens[math.random(1, #Tokens)] .. " "
 			end
-		) ]]
+
+			return out
+		end, function(str: string)
+			local s, d, _ = SerDesmond.Compile(str)
+		end)
 
 		--[[ 
 			Functional serdes testing
@@ -444,6 +447,7 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			"u16",
 			"u32",
 			"string",
+			"vector3",
 		}
 		Generators = {
 			array = function(depth)
@@ -631,7 +635,7 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 
 		-- print(DumpRecusriveTable({[{1, 2, 3}] = {{a = 99}, 4, 5}}))
 
-		T:Fuzz("SerDes fuzz", 100000, function()
+		T:Fuzz("SerDes fuzz", 100_000, function()
 			-- local str, ex = RandomGeneratorExcept({"binding"})(1)
 			local str, ex = Generators.periodic_array(1)
 			return { str, ex }

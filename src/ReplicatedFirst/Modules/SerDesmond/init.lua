@@ -1,5 +1,5 @@
 --!strict
---native
+--!native
 
 local is_separator = require(script.is_separator)
 local Tokenizer = require(script.Tokenizer)
@@ -1132,7 +1132,7 @@ type AnnotateSourceVisitor = ParseVisitor<
 	nil
 >
 
-local function AnnotateSource(node: ASTParseRoot, src: string, locations: { TokenLocation })
+local function AnnotateSource(node: ASTParseNodes, src: string, locations: { TokenLocation })
 	local source_by_line = string.split(src, "\n")
 	local lines_printed: { boolean } = table.create(#source_by_line)
 	local line_lengths: { number } = table.create(#source_by_line)
@@ -2030,13 +2030,15 @@ local function str_to_ast(str)
 	return ast, locations
 end
 
-local function compile_serdes_str<S, D>(str): (S | false, D | false, ASTValidRoot | false)
+function mod.Compile<S, D>(str, annotate_errors: boolean?): (S | false, D | false, ASTValidRoot | false)
 	local parsed_ast_root, locations = str_to_ast(str)
 	--PrintAST(parsed_ast_root)
 
 	local valid_ast_root: ASTValidRoot? = ASTNodeAccept(parsed_ast_root, ValidateVisitor)
 	if not valid_ast_root then
-		AnnotateSource(parsed_ast_root, str, locations)
+		if annotate_errors then
+			AnnotateSource(parsed_ast_root, str, locations)
+		end
 
 		return false, false, false
 	end
@@ -2047,21 +2049,13 @@ local function compile_serdes_str<S, D>(str): (S | false, D | false, ASTValidRoo
 	return serializer, deserializer, valid_ast_root
 end
 
-local function pretty_compile(str)
-	local s, d, ast = compile_serdes_str(str)
+function mod.PrettyCompile(str, annotate_errors: boolean?)
+	local s, d, ast = mod.Compile(str, annotate_errors)
 	return {
 		Serialize = s,
 		Deserialize = d,
 		Ast = ast,
 	}
-end
-
-function mod.Compile(str)
-	return compile_serdes_str(str)
-end
-
-function mod.PrettyCompile(str)
-	return pretty_compile(str)
 end
 
 function mod.PrintAST(ast: ASTParseRoot | ASTValidRoot)

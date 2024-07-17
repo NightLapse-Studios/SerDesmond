@@ -579,7 +579,7 @@ local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | AS
 
 		return NodeConstructors.error_with_children(
 			tokens,
-			idx,
+			idx - consumed_total,
 			`Type binding missing assignment separator`,
 			consumed_total,
 			{ lhs, rhs }
@@ -1132,10 +1132,10 @@ type AnnotateSourceVisitor = ParseVisitor<
 	nil
 >
 
-local function AnnotateSource(node: ASTParseRoot, str: string, locations: { TokenLocation })
-	local source_by_line = string.split(str, "\n")
-	local lines_printed = table.create(#source_by_line)
-	local line_lengths = table.create(#source_by_line)
+local function AnnotateSource(node: ASTParseRoot, src: string, locations: { TokenLocation })
+	local source_by_line = string.split(src, "\n")
+	local lines_printed: { boolean } = table.create(#source_by_line)
+	local line_lengths: { number } = table.create(#source_by_line)
 
 	for i, v in source_by_line do
 		line_lengths[i] = string.len(v)
@@ -1164,13 +1164,21 @@ local function AnnotateSource(node: ASTParseRoot, str: string, locations: { Toke
 		end,
 		error = function(self, node)
 			local location = locations[node.TokenIndex]
+			local line: string = source_by_line[location.Start.Line]
 			try_print_line(location.Start.Line)
 
 			local err_highlighter = ""
 			for i = last_newline_index, location.Start.Index - 1 do
-				err_highlighter ..= "\t"
+				local a = string.sub(src, i, i)
+				if a == "\t" then
+					err_highlighter ..= "\t"
+				else
+					err_highlighter ..= " "
+				end
 			end
-			for i = location.Start.Index, location.End.Index do
+
+			local end_idx = if location.End.Line == location.Start.Line then location.End.Index else string.len(line)
+			for i = location.Start.Index, end_idx, 1 do
 				err_highlighter ..= "^"
 			end
 

@@ -2000,7 +2000,7 @@ local function str_to_ast(str)
 	return ast, locations
 end
 
-function mod.Compile<S, D>(str, annotate_errors: boolean?): (S | false, D | false, ASTValidRoot | false)
+function mod.Compile<S, D>(str, annotate_errors: boolean?): (S?, D?, ASTValidRoot?)
 	local parsed_ast_root, locations = str_to_ast(str)
 	--PrintAST(parsed_ast_root)
 
@@ -2010,7 +2010,7 @@ function mod.Compile<S, D>(str, annotate_errors: boolean?): (S | false, D | fals
 			AnnotateSource(parsed_ast_root, str, locations)
 		end
 
-		return false, false, false
+		return
 	end
 
 	local serializer = ASTNodeAccept(valid_ast_root, SerializeVisitor)

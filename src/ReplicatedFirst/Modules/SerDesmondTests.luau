@@ -106,18 +106,15 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			SerDesmond.write_size_specifier(64, buf1, 2)
 			SerDesmond.write_size_specifier(max_size, buf2, 0)
 
+			-- stylua: ignore
 			T:ForContext(
 				"writing",
 				--						  [s=1 v=1][s=1 v=63][   s=2 v=64    ]
 				--						   ssvvvvvv ssvvvvvv ssvvvvvv vvvvvvvv
-				T.Equal,
-				dump_bits(buf1),
-				"00000001 00111111 01000000 01000000",
+				T.Equal, dump_bits(buf1), "00000001 00111111 01000000 01000000",
 				--						  [           s=3 v=2^30-1           ]
 				--						   ssvvvvvv vvvvvvvv vvvvvvvv vvvvvvvv
-				T.Equal,
-				dump_bits(buf2),
-				"11111111 11111111 11111111 11111111"
+				T.Equal, dump_bits(buf2), "11111111 11111111 11111111 11111111"
 			)
 
 			local full_buf = buffer.create(4)

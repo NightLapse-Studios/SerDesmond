@@ -449,6 +449,8 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			"string",
 			"vector3",
 		}
+
+		-- Construct a SerDes string and an object that can be passed to it once compiled
 		Generators = {
 			array = function(depth)
 				local children_ct = math.random(1, 3)
@@ -584,6 +586,8 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			table.insert(GeneratorsRandom, v)
 		end
 
+		-- Dumps a table with simple values as a string with consistent ordering
+		-- The output should be valid lua but may need to remove some trailing commas
 		local function DumpValueRecursive(t)
 			local b = ""
 			if typeof(t) == "table" then

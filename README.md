@@ -39,7 +39,9 @@ local original = des(buf)
 These figures are from a machine using a desktop Ryzen 5 1600x (one of the earliest ryzen processors) with modules in native mode. We use Squash as a reference since it is the most equivalent project.
 
 ### Compilation
-Obviously SerDesmond is much slower to construct than Squash due to having a compilation from string stage. It will never be as fast as Squash in this regard, it will always be orders of magnitude slower (currently ~1.5 to 2.5 orders of magnitude slower). However, it can compile about 1.3-2.1mB/s depending on the structure. Larger structures tend to have higher throughput. I can compile a simple map 45k times per second with 1.35 mB/s throughput while the ManyFieldsCompTest compiles 14k times per second with a throughput of ~2.1 mB/s on my machine. Only truly massive structures need to worry about compilation time, which should generally be done only once on application startup to begin with.
+Obviously SerDesmond is much slower to construct than Squash due to having a compilation from string stage. It will never be as fast as Squash in this regard, it will always be orders of magnitude slower (currently ~1.5 to 2.5 orders of magnitude slower). However, it can compile about 1.3-2.1mB/s depending on the structure. Larger structures tend to have higher throughput. I can compile a simple map 45k times per second with 1.35 mB/s throughput while the ManyFieldsCompTest compiles 14k times per second with a throughput of ~2.1 mB/s on my machine. Whitespace can inflate perceived throughput values since they do not entail any work in the compilation stage.
+
+It seems that it's already the case that only truly massive structures need to worry about compilation time, which should generally be done only once on application startup to begin with.
 
 ### SerDes
 

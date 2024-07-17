@@ -1,40 +1,52 @@
 --!strict
 --!native
 
-local is_separator = require(script.Parent.is_separator)
+local QUOTE_BYTE = string.byte('"')
+local POUND_BYTE = string.byte("#")
+local NONE_BYTE = string.byte("")
+local NEWLINE_BYTE = string.byte("\n")
+local TAB_BYTE = string.byte("\t")
+local SPACE_BYTE = string.byte(" ")
+local OPAREN_BYTE = string.byte("(")
+local CPAREN_BYTE = string.byte(")")
+local COMMA_BYTE = string.byte(",")
+local COLON_BYTE = string.byte(":")
+local LBRACKET_BYTE = string.byte("[")
+local RBRACKET_BYTE = string.byte("]")
 
-local function is_token_separator(c: string)
-	return is_separator(c) or c == '"'
+local function is_separator(c: number)
+	return c == OPAREN_BYTE
+		or c == CPAREN_BYTE
+		or c == COMMA_BYTE
+		or c == COLON_BYTE
+		or c == LBRACKET_BYTE
+		or c == RBRACKET_BYTE
 end
 
-local function is_whitespace(c: string)
-	if c == " " or c == "\t" then
+local function is_whitespace(c: number)
+	if c == SPACE_BYTE or c == TAB_BYTE then
 		return true
 	end
 
 	return false
 end
 
-local function is_newline(c: string)
-	return c == "\n"
-end
-
 local function get_str_token(str: string, idx: number)
 	local end_idx = idx
 	local lines_consumed = 0
 
-	local c = string.sub(str, idx, idx)
-	if c == '"' or c == "" then
+	local c = string.byte(str, idx, idx)
+	if c == QUOTE_BYTE or c == NONE_BYTE then
 		return "", idx, idx, lines_consumed
 	end
 
 	repeat
 		end_idx += 1
-		c = string.sub(str, end_idx, end_idx)
-		if is_newline(c) then
+		c = string.byte(str, end_idx, end_idx)
+		if c == NEWLINE_BYTE then
 			lines_consumed += 1
 		end
-	until c == '"' or c == ""
+	until c == QUOTE_BYTE or c == NONE_BYTE
 
 	end_idx -= 1
 
@@ -46,15 +58,15 @@ local function get_token(str: string, idx: number)
 	-- Find the first non-white-space character
 	local start_idx = idx
 	while true do
-		local c = string.sub(str, start_idx, start_idx)
+		local c = string.byte(str, start_idx, start_idx)
 		if is_whitespace(c) then
 			start_idx += 1
-		elseif is_newline(c) then
+		elseif c == NEWLINE_BYTE then
 			start_idx += 1
 			lines_consumed += 1
-		elseif is_token_separator(c) then
+		elseif is_separator(c) or c == QUOTE_BYTE then
 			-- if it's a separator, the beginning is the end
-			return c, start_idx, start_idx, lines_consumed
+			return string.char(c), start_idx, start_idx, lines_consumed
 		else
 			break
 		end
@@ -62,20 +74,20 @@ local function get_token(str: string, idx: number)
 
 	local end_idx = start_idx
 
-	if string.sub(str, end_idx, end_idx) == "#" then
+	if string.byte(str, end_idx, end_idx) == POUND_BYTE then
 		-- Handle comments
 		local c
 		repeat
 			end_idx += 1
-			c = string.sub(str, end_idx, end_idx)
-		until c == "\n" or c == ""
+			c = string.byte(str, end_idx, end_idx)
+		until c == NEWLINE_BYTE or c == NONE_BYTE
 	else
 		-- if we get here, we have a word-ey thing
 		while true do
-			local c = string.sub(str, end_idx, end_idx)
-			if c == "" then
+			local c = string.byte(str, end_idx, end_idx)
+			if c == NONE_BYTE then
 				break
-			elseif is_token_separator(c) or is_whitespace(c) or is_newline(c) then
+			elseif is_separator(c) or c == QUOTE_BYTE or is_whitespace(c) or c == NEWLINE_BYTE then
 				break
 			end
 
@@ -120,13 +132,10 @@ local function tokenize(str: string)
 		if token == '"' then
 			token, start_idx, end_idx, lines_consumed = get_str_token(str, idx)
 			table.insert(tokens, token)
-			table.insert(
-				token_locations,
-				{
-					Start = { Line = line, Index = start_idx },
-					End = { Line = line + lines_consumed + lines_consumed, Index = end_idx },
-				}
-			)
+			table.insert(token_locations, {
+				Start = { Line = line, Index = start_idx },
+				End = { Line = line + lines_consumed + lines_consumed, Index = end_idx },
+			})
 			idx = end_idx + 1
 			line += lines_consumed
 

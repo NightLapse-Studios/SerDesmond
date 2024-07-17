@@ -227,7 +227,9 @@ if BENCH_DESMOND_COMPILATION then
 					`{name}: {desmond_comp_average} per {internal_iters * 4} compilations ({desmond_comp_total} total time)`
 				)
 				print(`\troughly {comps_per_second} compilations per second`)
-				print(`\troughly {comps_per_second * string.len(comp_string) / 1024} kB per second`)
+				print(
+					`\troughly {compilations_total / desmond_comp_total * string.len(comp_string) / 1024} kB per second`
+				)
 			end
 		end
 	end)

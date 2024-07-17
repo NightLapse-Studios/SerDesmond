@@ -3,8 +3,6 @@ local IsStudio = RunService:IsStudio()
 
 local Config = {}
 
-Config.RunBench = true
-
 Config.PlaceId = 17373496574
 Config.TestPlaceId = 13489727259
 
@@ -89,6 +87,7 @@ Config.Gravity = Vector3.new(0, -32.2, 0) -- Bullets
 --=                                           =--
 --=============================================--
 
+Config.RunBench = false
 -- Run lazymodules tests stage
 Config.TESTING = false
 -- Optional string, a module name

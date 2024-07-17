@@ -351,7 +351,7 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 	end
 
 	local is_separator = require(script.Parent.SerDesmond.is_separator)
-	if G.CONTEXT == "SERVER" and FUZZ then
+	if G.CONTEXT == "SERVER" then
 		if FUZZ_RANDOM_STRINGS then
 			T:Fuzz("Random string", 100_000, function()
 				local s = ""

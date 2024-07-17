@@ -414,7 +414,7 @@ local raw_byte_readers = {
 	[4] = r_u32,
 }
 
-local function sum(t: { number })
+local function sum(t: { [any]: number })
 	local s = 0
 	for i, v in t do
 		s += v
@@ -1409,7 +1409,7 @@ type SizeCalcVisitor = ValidVisitor<
 	number,
 	(number | SizeCalcFn<unknown>, number | SizeCalcFn<unknown>) -> number,
 	SizeCalcFn<{ [string]: number }> | SizeCalcFn<{ unknown }>,
-	SizeCalcFn<{ unknown }>
+	SizeCalcFn<{ [string | number]: unknown }> | number
 >
 
 local SizeCalcVisitor: SizeCalcVisitor = {
@@ -1554,19 +1554,34 @@ local SizeCalcVisitor: SizeCalcVisitor = {
 		end
 	end,
 	struct = function(self, node)
-		local children = VisitorCollectChildren(self, node)
-		local struct_len = bytes_to_store_dynamic_size(#children)
 		local ast_children = node.Value
-		local child_map = {}
+		local struct_len = bytes_to_store_dynamic_size(#ast_children)
+
+		local map: { [string | number]: SizeCalcFn<unknown> | number } = {}
 		for i, v in ast_children do
-			local lhs = v.Value[1].Value
-			child_map[lhs] = children[i]
+			local lhs = v.Value[1].Value :: string | number
+			map[lhs] = ASTNodeAccept(v.Value[2], self)
 		end
 
-		local f = function(t: {})
-			local s = struct_len
-			for i, v in t do
-				s += child_map[i](i, v)
+		if VisitorChildrenAreTrivial(map) then
+			return sum(map :: { [string | number]: number })
+		end
+
+		local alpha = struct_len
+		local optimized_map: { [string | number]: SizeCalcFn<unknown> } = {}
+		for i, v in map do
+			if typeof(v) == "number" then
+				alpha += v
+				map[i] = nil
+			else
+				optimized_map[i] = v
+			end
+		end
+
+		local f = function(t: { [string | number]: unknown })
+			local s = alpha
+			for i, v in optimized_map do
+				s += v(t[i])
 			end
 
 			return s
@@ -1745,19 +1760,19 @@ local SerializeVisitor: SerializeVisitor = {
 		end
 	end,
 	struct = function(self, node)
-		local children = VisitorCollectChildren(self, node)
-
 		local ast_children = node.Value
-		local child_map = {}
+
+		local map = {}
 		for i, v in ast_children do
-			local lhs = v.Value[1].Value
-			child_map[lhs] = children[i]
+			local lhs_literal = v.Value[1].Value :: number | string
+			local rhs_writer = ASTNodeAccept(v.Value[2], self)
+			map[lhs_literal] = rhs_writer
 		end
 
 		local f = function(t: {}, b: buffer, idx: number)
 			local s = 0
-			for i, writer in child_map do
-				s += writer(i, t[i], b, idx + s)
+			for i, writer in map do
+				s += writer(t[i], b, idx + s)
 			end
 
 			return s
@@ -1943,20 +1958,21 @@ local DeserializeVisitor: DeserializeVisitor = {
 		return f
 	end,
 	struct = function(self, node)
-		local children = VisitorCollectChildren(self, node)
-		local struct_len = #children
 		local ast_children = node.Value
-		local child_map = {}
+		local struct_len = #ast_children
+
+		local map = {}
 		for i, v in ast_children do
-			local lhs = v.Value[1].Value
-			child_map[lhs] = children[i]
+			local lhs_literal = v.Value[1].Value :: number | string
+			local rhs_writer = ASTNodeAccept(v.Value[2], self)
+			map[lhs_literal] = rhs_writer
 		end
 
 		local f = function(b: buffer, idx: number)
 			local s = 0
-			local ret = table.create(struct_len)
-			for i, reader in child_map do
-				local l, r, read = reader(b, idx + s)
+			local ret: { [number | string]: any } = table.create(struct_len)
+			for l, reader in map do
+				local r, read = reader(b, idx + s)
 				s += read
 				ret[l] = r
 			end

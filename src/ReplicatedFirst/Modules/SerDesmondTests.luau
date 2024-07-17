@@ -637,8 +637,8 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 		-- print(DumpRecusriveTable({[{1, 2, 3}] = {{a = 99}, 4, 5}}))
 
 		T:Fuzz("SerDes fuzz", 100_000, function()
-			-- local str, ex = RandomGeneratorExcept({"binding"})(1)
-			local str, ex = Generators.periodic_array(1)
+			local str, ex = RandomGeneratorExcept({ "binding" })(1)
+			-- local str, ex = Generators.periodic_array(1)
 			return { str, ex }
 		end, function(p)
 			local str, ex = p[1], p[2]

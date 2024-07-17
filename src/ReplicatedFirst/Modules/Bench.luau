@@ -8,10 +8,14 @@
 	there is no point benchmarking as squash will be slower but ultimately for a good reason
 ]]
 
+if game:GetService("RunService"):IsClient() then
+	return {}
+end
+
 local Config = require(game.ReplicatedFirst.Config)
 
 if Config.RunBench ~= true then
-	return
+	return {}
 end
 
 local SerDesmond = require(script.Parent.SerDesmond)

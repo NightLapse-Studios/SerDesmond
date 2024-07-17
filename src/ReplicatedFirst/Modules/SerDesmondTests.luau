@@ -6,7 +6,6 @@ print("\x1b[31tttm")
 local mod = {}
 
 local SerDesmond = require(script.Parent.SerDesmond)
-local Table = require(game.ReplicatedFirst.Lib.Table)
 
 local function dump_bits(buf: buffer)
 	local t = ""

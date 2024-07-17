@@ -476,10 +476,6 @@ local function count_table_keys(t: {})
 	return i
 end
 
---[[
-    AST from token stream
-]]
-
 type Token = Tokenizer.Token
 type Tokens = Tokenizer.Tokens
 type Location = Tokenizer.Location
@@ -1113,23 +1109,10 @@ type ValidVisitor<
 	struct: (ParentVisitor, ASTValidStruct) -> StructRet,
 }
 
+-- stylua: ignore
 type AnnotateSourceVisitor = ParseVisitor<
 	AnnotateSourceVisitor,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil
+	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 >
 
 local function AnnotateSource(node: ASTParseNodes, src: string, locations: { TokenLocation })
@@ -1237,23 +1220,10 @@ local function AnnotateSource(node: ASTParseNodes, src: string, locations: { Tok
 	ASTNodeAccept(node, AnnotateSourceVisitor)
 end
 
+-- stylua: ignore
 type PrintASTVisitor = ParseVisitor<
 	PrintASTVisitor,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil,
-	nil
+	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 >
 
 local function PrintAST(ast: ASTParseRoot | ASTValidRoot)
@@ -2062,6 +2032,7 @@ function mod.PrintAST(ast: ASTParseRoot | ASTValidRoot)
 	PrintAST(ast)
 end
 
+-- Expose these for testing
 mod.write_size_specifier = write_size_specifier
 mod.read_size_specifier = read_size_specifier
 

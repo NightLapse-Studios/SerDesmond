@@ -1,4 +1,6 @@
-local FUZZ = true
+local FUZZ_RANDOM_STRINGS = false
+local FUZZ_RANDOM_TOKENS = false
+local FUZZ_SERDES_FUNCTIONS = true
 local NORMAL_TESTS = true
 
 local mod = {}
@@ -350,15 +352,17 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 
 	local is_separator = require(script.Parent.SerDesmond.is_separator)
 	if G.CONTEXT == "SERVER" and FUZZ then
-		T:Fuzz("Random string", 100_000, function()
-			local s = ""
-			for i = 1, math.random(10, 100), 1 do
-				s ..= string.char(math.random(0, 255))
-			end
-			return s
-		end, function(str: string)
-			local s, d, _ = SerDesmond.Compile(str, false)
-		end)
+		if FUZZ_RANDOM_STRINGS then
+			T:Fuzz("Random string", 100_000, function()
+				local s = ""
+				for i = 1, math.random(10, 100), 1 do
+					s ..= string.char(math.random(0, 255))
+				end
+				return s
+			end, function(str: string)
+				local s, d, _ = SerDesmond.Compile(str, false)
+			end)
+		end
 
 		--[[
 			Parsing tests
@@ -391,16 +395,18 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			")",
 		}
 
-		T:Fuzz("Random tokens fuzz", 100_000, function()
-			local out = ""
-			for i = 1, 30, 1 do
-				out ..= Tokens[math.random(1, #Tokens)] .. " "
-			end
+		if FUZZ_RANDOM_TOKENS then
+			T:Fuzz("Random tokens fuzz", 100_000, function()
+				local out = ""
+				for i = 1, 30, 1 do
+					out ..= Tokens[math.random(1, #Tokens)] .. " "
+				end
 
-			return out
-		end, function(str: string)
-			local s, d, _ = SerDesmond.Compile(str)
-		end)
+				return out
+			end, function(str: string)
+				local s, d, _ = SerDesmond.Compile(str)
+			end)
+		end
 
 		--[[ 
 			Functional serdes testing
@@ -636,25 +642,27 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 
 		-- print(DumpRecusriveTable({[{1, 2, 3}] = {{a = 99}, 4, 5}}))
 
-		T:Fuzz("SerDes fuzz", 100_000, function()
-			local str, ex = RandomGeneratorExcept({ "binding" })(1)
-			-- local str, ex = Generators.periodic_array(1)
-			return { str, ex }
-		end, function(p)
-			local str, ex = p[1], p[2]
-			local s, d, _ = SerDesmond.Compile(str)
-			if not (s and d) then
-				error("Compile failed")
-			end
+		if FUZZ_SERDES_FUNCTIONS then
+			T:Fuzz("SerDes fuzz", 100_000, function()
+				local str, ex = RandomGeneratorExcept({ "binding" })(1)
+				-- local str, ex = Generators.periodic_array(1)
+				return { str, ex }
+			end, function(p)
+				local str, ex = p[1], p[2]
+				local s, d, _ = SerDesmond.Compile(str)
+				if not (s and d) then
+					error("Compile failed")
+				end
 
-			local res = d(s(ex))
-			local before = DumpValueRecursive(ex)
-			local after = DumpValueRecursive(res)
+				local res = d(s(ex))
+				local before = DumpValueRecursive(ex)
+				local after = DumpValueRecursive(res)
 
-			if before ~= after then
-				error("SerDes not equivalent:\n" .. before .. "\n" .. after)
-			end
-		end)
+				if before ~= after then
+					error("SerDes not equivalent:\n" .. before .. "\n" .. after)
+				end
+			end)
+		end
 	end
 end
 

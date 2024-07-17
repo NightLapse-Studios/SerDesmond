@@ -925,17 +925,18 @@ local function struct(tokens: Tokens, idx: number)
 			local child_type = v.Type
 			if child_type ~= "binding" then
 				if child_type ~= "error" then
-					local err, _ = error(tokens, v.TokenIndex, "dictionaries can only contain bindings", v.TokenSize)
+					local err, _ = error(tokens, v.TokenIndex, "structs can only contain bindings", v.TokenSize)
 					children[i] = err
 				end
 			else
-				local lhs_type = v.Value[1].Type
+				local lhs = v.Value[1]
+				local lhs_type = lhs.Type
 				if lhs_type ~= "error" and lhs_type ~= "number_literal" and lhs_type ~= "string_literal" then
-					return error(
+					children[i] = error(
 						tokens,
-						idx,
-						"left hand side of struct bindings cannot be a type that becomes a table",
-						consumed_total
+						lhs.TokenIndex,
+						"left hand side of struct bindings must be a number or string literal",
+						lhs.TokenSize
 					)
 				end
 			end
@@ -1140,7 +1141,7 @@ local function AnnotateSource(node: ASTParseRoot, str: string, locations: { Toke
 		line_lengths[i] = string.len(v)
 	end
 
-	local last_newline_index = 1
+	local last_newline_index = 0
 	local function try_print_line(line: number)
 		if lines_printed[line] then
 			return
@@ -1149,9 +1150,8 @@ local function AnnotateSource(node: ASTParseRoot, str: string, locations: { Toke
 		for i = #lines_printed + 1, line, 1 do
 			print(source_by_line[i])
 			lines_printed[i] = true
+			last_newline_index += 1 + if source_by_line[i - 1] then string.len(source_by_line[i - 1]) else 0
 		end
-
-		last_newline_index += if source_by_line[line - 1] then string.len(source_by_line[line - 1]) else 0
 	end
 
 	local AnnotateSourceVisitor: AnnotateSourceVisitor = {
@@ -1165,6 +1165,7 @@ local function AnnotateSource(node: ASTParseRoot, str: string, locations: { Toke
 		error = function(self, node)
 			local location = locations[node.TokenIndex]
 			try_print_line(location.Start.Line)
+
 			local err_highlighter = ""
 			for i = last_newline_index, location.Start.Index - 1 do
 				err_highlighter ..= "\t"
@@ -1172,16 +1173,13 @@ local function AnnotateSource(node: ASTParseRoot, str: string, locations: { Toke
 			for i = location.Start.Index, location.End.Index do
 				err_highlighter ..= "^"
 			end
+
 			print(err_highlighter)
+			print("Error: " .. node.Extra)
+
 			if typeof(node.Value) == "table" then
-				print("Error: " .. node.Extra)
 				VisitorTraverseChildren(self, node)
-			else
-				print("Error: " .. node.Value)
 			end
-		end,
-		error_with_children = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 		end,
 		type_literal = function(self, node)
 			try_print_line(locations[node.TokenIndex].Start.Line)
@@ -1194,30 +1192,37 @@ local function AnnotateSource(node: ASTParseRoot, str: string, locations: { Toke
 		end,
 		enum = function(self, node)
 			try_print_line(locations[node.TokenIndex].Start.Line)
+			VisitorTraverseChildren(self, node)
 		end,
 		array = function(self, node)
 			try_print_line(locations[node.TokenIndex].Start.Line)
+			VisitorTraverseChildren(self, node)
 		end,
 		periodic_array = function(self, node)
 			try_print_line(locations[node.TokenIndex].Start.Line)
+			VisitorTraverseChildren(self, node)
 		end,
 		vector3 = function(self, node)
 			try_print_line(locations[node.TokenIndex].Start.Line)
+			VisitorTraverseChildren(self, node)
 		end,
 		size_specifier = function(self, node)
 			try_print_line(locations[node.TokenIndex].Start.Line)
 		end,
 		binding = function(self, node)
 			try_print_line(locations[node.TokenIndex].Start.Line)
+			VisitorTraverseChildren(self, node)
 		end,
 		map = function(self, node)
 			try_print_line(locations[node.TokenIndex].Start.Line)
+			VisitorTraverseChildren(self, node)
 		end,
 		string = function(self, node)
 			try_print_line(locations[node.TokenIndex].Start.Line)
 		end,
 		struct = function(self, node)
 			try_print_line(locations[node.TokenIndex].Start.Line)
+			VisitorTraverseChildren(self, node)
 		end,
 	}
 
@@ -1266,12 +1271,11 @@ local function PrintAST(ast: ASTParseRoot | ASTValidRoot)
 		end,
 		error = function(self, node)
 			print_desc(self, "error: " .. node.Extra)
-		end,
-		error_with_children = function(self, node)
-			print_desc(self, "error: " .. node.Extra)
-			indent += 1
-			VisitorTraverseChildren(self, node)
-			indent -= 1
+			if typeof(node.Value) == "table" then
+				indent += 1
+				VisitorTraverseChildren(self, node)
+				indent -= 1
+			end
 		end,
 		type_literal = function(self, node)
 			print_desc(self, "type: " .. node.Value)

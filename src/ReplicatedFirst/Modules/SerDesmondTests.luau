@@ -41,12 +41,9 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 		]]
 		local struct_str = [[
 			struct(
-				# test
 				"a": i8,
-				# test 2
 				"b": f64,
 				"c": i8,
-				i8: f64,
 				1: array(i8, f32)
 			)
 		]]

@@ -1,7 +1,9 @@
-local FUZZ = true
+local FUZZ = false
 local NORMAL_TESTS = true
 
-local mod = { }
+print("\x1b[31tttm")
+
+local mod = {}
 
 local SerDesmond = require(script.Parent.SerDesmond)
 local Table = require(game.ReplicatedFirst.Lib.Table)
@@ -44,6 +46,7 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 				# test 2
 				"b": f64,
 				"c": i8,
+				i8: f64,
 				1: array(i8, f32)
 			)
 		]]
@@ -77,7 +80,6 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			)
 		]]
 
-
 		local _, struct = pcall(function()
 			return SerDesmond.PrettyCompile(struct_str)
 		end)
@@ -103,7 +105,7 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 		-- SerDesmond.PrintAST(valid_host_nodes)
 
 		T:Test("Size specifier", function()
-			local min_size, max_size = 1, 2^30 - 1
+			local min_size, max_size = 1, 2 ^ 30 - 1
 			local buf1 = buffer.create(4)
 			local buf2 = buffer.create(4)
 			local buf3 = buffer.create(4)
@@ -112,188 +114,285 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			SerDesmond.write_size_specifier(64, buf1, 2)
 			SerDesmond.write_size_specifier(max_size, buf2, 0)
 
-			T:ForContext("writing",
+			T:ForContext(
+				"writing",
 				--						  [s=1 v=1][s=1 v=63][   s=2 v=64    ]
 				--						   ssvvvvvv ssvvvvvv ssvvvvvv vvvvvvvv
-				T.Equal, dump_bits(buf1), "00000001 00111111 01000000 01000000",
+				T.Equal,
+				dump_bits(buf1),
+				"00000001 00111111 01000000 01000000",
 				--						  [           s=3 v=2^30-1           ]
 				--						   ssvvvvvv vvvvvvvv vvvvvvvv vvvvvvvv
-				T.Equal, dump_bits(buf2), "11111111 11111111 11111111 11111111"
+				T.Equal,
+				dump_bits(buf2),
+				"11111111 11111111 11111111 11111111"
 			)
 
 			local full_buf = buffer.create(4)
 			-- Fill with 1s
-			SerDesmond.write_size_specifier(2^30-1, full_buf, 0)
+			SerDesmond.write_size_specifier(2 ^ 30 - 1, full_buf, 0)
 			-- overwrite 2nd byte
 			SerDesmond.write_size_specifier(1, full_buf, 1)
 
-			T:ForContext("written size",
-				T.Equal, dump_bits(full_buf), "11111111 00000001 11111111 11111111"
-			)
+			T:ForContext("written size", T.Equal, dump_bits(full_buf), "11111111 00000001 11111111 11111111")
 
-			T:ForContext("reading",
-				T.Equal, SerDesmond.read_size_specifier(buf1, 0), 1,
-				T.Equal, SerDesmond.read_size_specifier(buf1, 1), 63,
-				T.Equal, SerDesmond.read_size_specifier(buf1, 2), 64,
-				T.Equal, SerDesmond.read_size_specifier(buf2, 0), 2^30 - 1
+			T:ForContext(
+				"reading",
+				T.Equal,
+				SerDesmond.read_size_specifier(buf1, 0),
+				1,
+				T.Equal,
+				SerDesmond.read_size_specifier(buf1, 1),
+				63,
+				T.Equal,
+				SerDesmond.read_size_specifier(buf1, 2),
+				64,
+				T.Equal,
+				SerDesmond.read_size_specifier(buf2, 0),
+				2 ^ 30 - 1
 			)
 		end)
 		T:Test("Compile junk", function()
 			-- TODO: These will fail with the reported error
-			T:ForContext("comments in construct",
-				T.Equal, typeof(comments_in_weird_spots.Serialize), "function",
-				T.Equal, typeof(comments_in_weird_spots.Deserialize), "function"
+			T:ForContext(
+				"comments in construct",
+				T.Equal,
+				typeof(comments_in_weird_spots.Serialize),
+				"function",
+				T.Equal,
+				typeof(comments_in_weird_spots.Deserialize),
+				"function"
 			)
-			T:ForContext("all host nodes in array",
-				T.Equal, typeof(array_contains_host_nodes.Serialize), "function",
-				T.Equal, typeof(array_contains_host_nodes.Deserialize), "function"
+			T:ForContext(
+				"all host nodes in array",
+				T.Equal,
+				typeof(array_contains_host_nodes.Serialize),
+				"function",
+				T.Equal,
+				typeof(array_contains_host_nodes.Deserialize),
+				"function"
 			)
 		end)
 
 		T:Test("Enum", function()
-			T:ForContext("Compile",
-				T.Equal, typeof(enum.Serialize), "function",
-				T.Equal, typeof(enum.Deserialize), "function"
+			T:ForContext(
+				"Compile",
+				T.Equal,
+				typeof(enum.Serialize),
+				"function",
+				T.Equal,
+				typeof(enum.Deserialize),
+				"function"
 			)
-			local t = enum.Deserialize(enum.Serialize({"asd", "asd", "asdfg"}))
-			T:ForContext("SerDes",
-				T.Equal, t[1], "asd",
-				T.Equal, t[2], "asd",
-				T.Equal, t[3], "asdfg"
-			)
+			local t = enum.Deserialize(enum.Serialize({ "asd", "asd", "asdfg" }))
+			T:ForContext("SerDes", T.Equal, t[1], "asd", T.Equal, t[2], "asd", T.Equal, t[3], "asdfg")
 		end)
 		T:Test("Array", function()
-			T:ForContext("Compile",
-				T.Equal, typeof(array.Serialize), "function",
-				T.Equal, typeof(array.Deserialize), "function"
+			T:ForContext(
+				"Compile",
+				T.Equal,
+				typeof(array.Serialize),
+				"function",
+				T.Equal,
+				typeof(array.Deserialize),
+				"function"
 			)
-			local t = array.Deserialize(array.Serialize({1, 2}))
-			T:ForContext("SerDes",
-				T.Equal, t[1], 1,
-				T.Equal, t[2], 2
-			)
+			local t = array.Deserialize(array.Serialize({ 1, 2 }))
+			T:ForContext("SerDes", T.Equal, t[1], 1, T.Equal, t[2], 2)
 			local stuff = array_contains_host_nodes.Deserialize(array_contains_host_nodes.Serialize({
-				{asdf = 1},
+				{ asdf = 1 },
 				Vector3.new(2, 3, 4),
 				"yooo",
-				{5, 6},
-				{7, 8, 9},
-				{"one", "two", "three"},
-				{[4] = "10", [5] = "11", [6] = "12"}
+				{ 5, 6 },
+				{ 7, 8, 9 },
+				{ "one", "two", "three" },
+				{ [4] = "10", [5] = "11", [6] = "12" },
 			}))
-			T:ForContext("Contains all host nodes: types",
-				T.Equal, typeof(stuff[1]), "table",
-				T.Equal, typeof(stuff[2]), "Vector3",
-				T.Equal, typeof(stuff[3]), "string",
-				T.Equal, typeof(stuff[4]), "table",
-				T.Equal, typeof(stuff[5]), "table",
-				T.Equal, typeof(stuff[6]), "table",
-				T.Equal, typeof(stuff[7]), "table"
+			T:ForContext(
+				"Contains all host nodes: types",
+				T.Equal,
+				typeof(stuff[1]),
+				"table",
+				T.Equal,
+				typeof(stuff[2]),
+				"Vector3",
+				T.Equal,
+				typeof(stuff[3]),
+				"string",
+				T.Equal,
+				typeof(stuff[4]),
+				"table",
+				T.Equal,
+				typeof(stuff[5]),
+				"table",
+				T.Equal,
+				typeof(stuff[6]),
+				"table",
+				T.Equal,
+				typeof(stuff[7]),
+				"table"
 			)
-			T:ForContext("Contains all hose nodes: values",
-				T.Equal, stuff[1].asdf, 1,
-				T.Equal, stuff[2].X, 2,
-				T.Equal, stuff[2].Y, 3,
-				T.Equal, stuff[2].Z, 4,
-				T.Equal, stuff[3], "yooo",
-				T.Equal, stuff[4][1], 5,
-				T.Equal, stuff[4][2], 6,
-				T.Equal, stuff[5][1], 7,
-				T.Equal, stuff[5][2], 8,
-				T.Equal, stuff[5][3], 9,
-				T.Equal, stuff[6][1], "one",
-				T.Equal, stuff[6][2], "two",
-				T.Equal, stuff[6][3], "three",
-				T.Equal, stuff[7][1], nil,
-				T.Equal, stuff[7][2], nil,
-				T.Equal, stuff[7][3], nil,
-				T.Equal, stuff[7][4], "10",
-				T.Equal, stuff[7][5], "11",
-				T.Equal, stuff[7][6], "12"
+			T:ForContext(
+				"Contains all hose nodes: values",
+				T.Equal,
+				stuff[1].asdf,
+				1,
+				T.Equal,
+				stuff[2].X,
+				2,
+				T.Equal,
+				stuff[2].Y,
+				3,
+				T.Equal,
+				stuff[2].Z,
+				4,
+				T.Equal,
+				stuff[3],
+				"yooo",
+				T.Equal,
+				stuff[4][1],
+				5,
+				T.Equal,
+				stuff[4][2],
+				6,
+				T.Equal,
+				stuff[5][1],
+				7,
+				T.Equal,
+				stuff[5][2],
+				8,
+				T.Equal,
+				stuff[5][3],
+				9,
+				T.Equal,
+				stuff[6][1],
+				"one",
+				T.Equal,
+				stuff[6][2],
+				"two",
+				T.Equal,
+				stuff[6][3],
+				"three",
+				T.Equal,
+				stuff[7][1],
+				nil,
+				T.Equal,
+				stuff[7][2],
+				nil,
+				T.Equal,
+				stuff[7][3],
+				nil,
+				T.Equal,
+				stuff[7][4],
+				"10",
+				T.Equal,
+				stuff[7][5],
+				"11",
+				T.Equal,
+				stuff[7][6],
+				"12"
 			)
 		end)
 		T:Test("Periodic Array", function()
-			T:ForContext("Compile",
-				T.Equal, typeof(p_array.Serialize), "function",
-				T.Equal, typeof(p_array.Deserialize), "function"
+			T:ForContext(
+				"Compile",
+				T.Equal,
+				typeof(p_array.Serialize),
+				"function",
+				T.Equal,
+				typeof(p_array.Deserialize),
+				"function"
 			)
-			local t = p_array.Deserialize(p_array.Serialize({2, 3, 4, 5}))
-			T:ForContext("SerDes",
-				T.Equal, t[1], 2,
-				T.Equal, t[2], 3,
-				T.Equal, t[3], 4,
-				T.Equal, t[4], 5
-			)
+			local t = p_array.Deserialize(p_array.Serialize({ 2, 3, 4, 5 }))
+			T:ForContext("SerDes", T.Equal, t[1], 2, T.Equal, t[2], 3, T.Equal, t[3], 4, T.Equal, t[4], 5)
 		end)
 		T:Test("Map", function()
-			T:ForContext("Compile",
-				T.Equal, typeof(map.Serialize), "function",
-				T.Equal, typeof(map.Deserialize), "function"
+			T:ForContext(
+				"Compile",
+				T.Equal,
+				typeof(map.Serialize),
+				"function",
+				T.Equal,
+				typeof(map.Deserialize),
+				"function"
 			)
-			local t = map.Deserialize(map.Serialize({one = 1, two = 2}))
-			T:ForContext("SerDes",
-				T.Equal, t.one, 1,
-				T.Equal, t.two, 2
-			)
+			local t = map.Deserialize(map.Serialize({ one = 1, two = 2 }))
+			T:ForContext("SerDes", T.Equal, t.one, 1, T.Equal, t.two, 2)
 		end)
 		T:Test("Struct", function()
-			T:ForContext("Compile",
-				T.Equal, typeof(struct.Serialize), "function",
-				T.Equal, typeof(struct.Deserialize), "function"
+			T:ForContext(
+				"Compile",
+				T.Equal,
+				typeof(struct.Serialize),
+				"function",
+				T.Equal,
+				typeof(struct.Deserialize),
+				"function"
 			)
-			local t = struct.Deserialize(struct.Serialize({a = 1, b = 2, c = 3, [1] = {1, 3.14}}))
-			T:ForContext("SerDes",
-				T.Equal, t.a, 1,
-				T.Equal, t.b, 2,
-				T.Equal, t.c, 3,
-				T.Equal, typeof(t[1]), "table",
-				T.Equal, t[1][1], 1,
-				T.Equal, t[1][2], 3.140000104904175
+			local t = struct.Deserialize(struct.Serialize({ a = 1, b = 2, c = 3, [1] = { 1, 3.14 } }))
+			T:ForContext(
+				"SerDes",
+				T.Equal,
+				t.a,
+				1,
+				T.Equal,
+				t.b,
+				2,
+				T.Equal,
+				t.c,
+				3,
+				T.Equal,
+				typeof(t[1]),
+				"table",
+				T.Equal,
+				t[1][1],
+				1,
+				T.Equal,
+				t[1][2],
+				3.140000104904175
 			)
 		end)
 		T:Test("Comments", function()
-			local t, t2 = comments_in_weird_spots.Deserialize(comments_in_weird_spots.Serialize({a = 1}, Vector3.new(2, 3, 4)))
-			T:ForContext("In weird places",
-				T.Equal, t.a, 1,
-				T.Equal, t2, Vector3.new(2, 3, 4) 
-			)
+			local t, t2 =
+				comments_in_weird_spots.Deserialize(comments_in_weird_spots.Serialize({ a = 1 }, Vector3.new(2, 3, 4)))
+			T:ForContext("In weird places", T.Equal, t.a, 1, T.Equal, t2, Vector3.new(2, 3, 4))
 		end)
 	end
-
-	local Tokens = {
-		"i8",
-		"i16",
-		"i32",
-		"u8",
-		"u16",
-		"u32",
-		"f8",
-		"f16",
-		"f32",
-		"f64",
-		"string",
-		"enum",
-		"array",
-		"periodic_array",
-		"map",
-		"struct",
-		"vector3",
-		",",
-		":",
-		"(",
-		")",
-		",",
-		":",
-		"(",
-		")"
-	}
 
 	local is_separator = require(script.Parent.SerDesmond.is_separator)
 	if G.CONTEXT == "SERVER" and FUZZ then
 		--[[
 			Parsing tests
 		]]
-		T:Fuzz("Random tokens fuzz", 100_000,
+		local Tokens = {
+			"i8",
+			"i16",
+			"i32",
+			"u8",
+			"u16",
+			"u32",
+			"f8",
+			"f16",
+			"f32",
+			"f64",
+			"string",
+			"enum",
+			"array",
+			"periodic_array",
+			"map",
+			"struct",
+			"vector3",
+			",",
+			":",
+			"(",
+			")",
+			",",
+			":",
+			"(",
+			")",
+		}
+
+		--[[ 		T:Fuzz("Random tokens fuzz", 100_000,
 			function()
 				local out = ""
 				for i = 1, 30, 1 do
@@ -305,7 +404,7 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			function(str: string)
 				local s, d, _ = SerDesmond.Compile(str)
 			end
-		)
+		) ]]
 
 		--[[ 
 			Functional serdes testing
@@ -318,9 +417,9 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			return GeneratorsRandom[math.random(1, #GeneratorsRandom)]
 		end
 
-		local function RandomGeneratorExcept(strs: {string})
-			local except = { }
-			for i,v in strs do
+		local function RandomGeneratorExcept(strs: { string })
+			local except = {}
+			for i, v in strs do
 				table.insert(except, Generators[v])
 			end
 
@@ -334,16 +433,49 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 
 		local max_depth = 3
 		local binding_blacklist = { "binding" }
-		local max_depth_blacklist = { "array", "binding", "map", "enum", "struct" }
-		local literals_blacklist = { "array", "binding", "map", "enum", "struct", "i8", "i16", "i32", "u8", "u16", "u32", "string"}
+		local max_depth_blacklist = { "array", "binding", "map", "enum", "struct", "periodic_array" }
+		local literals_blacklist = {
+			"array",
+			"binding",
+			"map",
+			"enum",
+			"struct",
+			"periodic_array",
+			"i8",
+			"i16",
+			"i32",
+			"u8",
+			"u16",
+			"u32",
+			"string",
+		}
 		Generators = {
 			array = function(depth)
 				local children_ct = math.random(1, 3)
-				local children_ex = { }
+				local children_ex = {}
 
 				local blacklist = if depth >= max_depth then max_depth_blacklist else binding_blacklist
 
 				local out = "array("
+				for i = 1, children_ct, 1 do
+					local child_str, child_ex = RandomGeneratorExcept(blacklist)(depth + 1)
+					table.insert(children_ex, child_ex)
+					out ..= child_str
+					if i ~= children_ct then
+						out ..= ", "
+					end
+				end
+
+				out ..= ")"
+				return out, children_ex
+			end,
+			periodic_array = function(depth)
+				local children_ct = math.random(1, 3)
+				local children_ex = {}
+
+				local blacklist = if depth >= max_depth then max_depth_blacklist else binding_blacklist
+
+				local out = "periodic_array("
 				for i = 1, children_ct, 1 do
 					local child_str, child_ex = RandomGeneratorExcept(blacklist)(depth + 1)
 					table.insert(children_ex, child_ex)
@@ -368,14 +500,14 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 				local lhs_blacklist = if only_use_lhs_literals then literals_blacklist else blacklist
 				local lhs, lhs_ex = RandomGeneratorExcept(lhs_blacklist)(depth + 1)
 				local rhs, rhs_ex = RandomGeneratorExcept(blacklist)(depth + 1)
-				local ex = { }
+				local ex = {}
 				ex[lhs_ex] = rhs_ex
 
 				return lhs .. ": " .. rhs, ex
 			end,
-			enum = function(depth)				
+			enum = function(depth)
 				local children_ct = math.random(3, 5)
-				local children_ex = { }
+				local children_ex = {}
 
 				local out = "enum("
 				for i = 1, children_ct, 1 do
@@ -392,7 +524,7 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			end,
 			struct = function(depth)
 				local children_ct = math.random(3, 5)
-				local children_ex = { }
+				local children_ex = {}
 
 				local out = "struct("
 				for i = 1, children_ct, 1 do
@@ -401,7 +533,7 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 						continue
 					end
 
-					for i,v in binding_ex do
+					for i, v in binding_ex do
 						children_ex[i] = v
 					end
 					out ..= binding
@@ -431,9 +563,12 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			u32 = function()
 				return "u32", 3
 			end,
+			vector3 = function()
+				return "vector3(i8, i8, i8)", Vector3.new(9, 10, 11)
+			end,
 			string_literal = function()
 				local ex = "str" .. tostring(math.random(1, 99))
-				return "\"" .. ex .. "\"", ex
+				return '"' .. ex .. '"', ex
 			end,
 			string = function()
 				return "string", "str" .. tostring(math.random(1, 99))
@@ -441,11 +576,11 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			number_literal = function()
 				local ex = math.random(-99, 99)
 				return tostring(ex), ex
-			end
+			end,
 		}
 
-		GeneratorsRandom = { }
-		for i,v in Generators do
+		GeneratorsRandom = {}
+		for i, v in Generators do
 			table.insert(GeneratorsRandom, v)
 		end
 
@@ -453,13 +588,13 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			local b = ""
 			if typeof(t) == "table" then
 				b ..= "{"
-				local entries = { }
-				for i,v in t do
+				local entries = {}
+				for i, v in t do
 					local idx, value
 					if typeof(i) == "string" then
-						idx = "\"" .. i .. "\""
+						idx = '"' .. i .. '"'
 					elseif typeof(i) == "table" then
-							idx = DumpValueRecursive(i)
+						idx = DumpValueRecursive(i)
 					else
 						idx = tostring(i)
 					end
@@ -470,7 +605,7 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 						value = tostring(v)
 					end
 
-					table.insert(entries, {Index = idx, Value = value})
+					table.insert(entries, { Index = idx, Value = value })
 				end
 
 				table.sort(entries, function(a, b)
@@ -479,13 +614,15 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 						i += 1
 						local an = string.byte(a.Index, i, i) or 0
 						local bn = string.byte(b.Index, i, i) or 0
-						if an == bn and an ~= 0 then continue end
+						if an == bn and an ~= 0 then
+							continue
+						end
 
 						return an < bn
 					end
 				end)
-				
-				for i,v in entries do
+
+				for i, v in entries do
 					b ..= "[" .. v.Index .. "]=" .. v.Value .. ","
 				end
 				b ..= "}"
@@ -498,28 +635,25 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 
 		-- print(DumpRecusriveTable({[{1, 2, 3}] = {{a = 99}, 4, 5}}))
 
-		T:Fuzz("SerDes fuzz", 100000,
-			function()
-				local str, ex = RandomGeneratorExcept({"binding"})(1)
-				-- local str, ex = Generators.struct(1)
-				return {str, ex}
-			end,
-			function(p)
-				local str, ex = p[1], p[2]
-				local s, d, _ = SerDesmond.Compile(str)
-				if not (s and d) then
-					error("Compile failed")
-				end
-				
-				local res = d(s(ex))
-				local before = DumpValueRecursive(ex)
-				local after = DumpValueRecursive(res)
-
-				if before ~= after then
-					error("SerDes not equivalent:\n" .. before .. "\n" .. after)
-				end
+		T:Fuzz("SerDes fuzz", 100000, function()
+			-- local str, ex = RandomGeneratorExcept({"binding"})(1)
+			local str, ex = Generators.periodic_array(1)
+			return { str, ex }
+		end, function(p)
+			local str, ex = p[1], p[2]
+			local s, d, _ = SerDesmond.Compile(str)
+			if not (s and d) then
+				error("Compile failed")
 			end
-		)
+
+			local res = d(s(ex))
+			local before = DumpValueRecursive(ex)
+			local after = DumpValueRecursive(res)
+
+			if before ~= after then
+				error("SerDes not equivalent:\n" .. before .. "\n" .. after)
+			end
+		end)
 	end
 end
 

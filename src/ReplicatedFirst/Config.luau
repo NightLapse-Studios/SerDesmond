@@ -87,9 +87,10 @@ Config.Gravity = Vector3.new(0, -32.2, 0) -- Bullets
 --=                                           =--
 --=============================================--
 
-Config.RunBench = false
+Config.RunBench = true
 -- Run lazymodules tests stage
 Config.TESTING = false
+Config.LogSuccessfulSubTests = false
 -- Optional string, a module name
 Config.FocusTestOn = "SerDesmondTests"
 

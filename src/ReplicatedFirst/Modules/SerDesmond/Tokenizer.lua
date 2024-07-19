@@ -24,11 +24,7 @@ local function is_separator(c: number)
 end
 
 local function is_whitespace(c: number)
-	if c == SPACE_BYTE or c == TAB_BYTE then
-		return true
-	end
-
-	return false
+	return c == SPACE_BYTE or c == TAB_BYTE
 end
 
 local function get_str_token(str: string, idx: number)
@@ -58,15 +54,28 @@ local function get_token(str: string, idx: number)
 	-- Find the first non-white-space character
 	local start_idx = idx
 	while true do
-		local c = string.byte(str, start_idx, start_idx)
-		if is_whitespace(c) then
-			start_idx += 1
-		elseif c == NEWLINE_BYTE then
-			start_idx += 1
-			lines_consumed += 1
-		elseif is_separator(c) or c == QUOTE_BYTE then
-			-- if it's a separator, the beginning is the end
-			return string.char(c), start_idx, start_idx, lines_consumed
+		while true do
+			local c = string.byte(str, start_idx, start_idx)
+			if is_whitespace(c) then
+				start_idx += 1
+			elseif c == NEWLINE_BYTE then
+				start_idx += 1
+				lines_consumed += 1
+			elseif is_separator(c) or c == QUOTE_BYTE then
+				-- if it's a separator, the beginning is the end
+				return string.char(c), start_idx, start_idx, lines_consumed
+			else
+				break
+			end
+		end
+
+		if string.byte(str, start_idx, start_idx) == POUND_BYTE then
+			-- Skip comments
+			local c
+			repeat
+				start_idx += 1
+				c = string.byte(str, start_idx, start_idx)
+			until c == NEWLINE_BYTE or c == NONE_BYTE
 		else
 			break
 		end
@@ -74,25 +83,16 @@ local function get_token(str: string, idx: number)
 
 	local end_idx = start_idx
 
-	if string.byte(str, end_idx, end_idx) == POUND_BYTE then
-		-- Handle comments
-		local c
-		repeat
-			end_idx += 1
-			c = string.byte(str, end_idx, end_idx)
-		until c == NEWLINE_BYTE or c == NONE_BYTE
-	else
-		-- if we get here, we have a word-ey thing
-		while true do
-			local c = string.byte(str, end_idx, end_idx)
-			if c == NONE_BYTE then
-				break
-			elseif is_separator(c) or c == QUOTE_BYTE or is_whitespace(c) or c == NEWLINE_BYTE then
-				break
-			end
-
-			end_idx += 1
+	-- if we get here, we have a word-ey thing
+	while true do
+		local c = string.byte(str, end_idx, end_idx)
+		if c == NONE_BYTE then
+			break
+		elseif is_separator(c) or c == QUOTE_BYTE or is_whitespace(c) or c == NEWLINE_BYTE then
+			break
 		end
+
+		end_idx += 1
 	end
 
 	end_idx -= 1

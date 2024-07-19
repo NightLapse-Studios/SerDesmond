@@ -101,7 +101,7 @@ local function run_bench(iterations, fn, arg)
 		local start = os.clock()
 		fn(arg)
 		table.insert(times, os.clock() - start)
-		if os.clock() - abs_start > 1 then
+		if os.clock() - abs_start > 0.1 then
 			task.wait()
 			abs_start = os.clock()
 		end

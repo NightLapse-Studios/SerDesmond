@@ -1,7 +1,6 @@
 --!strict
 --!native
 
-local is_separator = require(script.is_separator)
 local Tokenizer = require(script.Tokenizer)
 
 local mod = {}
@@ -293,7 +292,6 @@ type ASTValidNodes =
 	| ASTValidString
 	| ASTValidStruct
 
-local POUND_BYTE = string.byte("#")
 local TAB_BYTE = string.byte("\t")
 
 --[[
@@ -479,6 +477,10 @@ local function count_table_keys(t: {})
 	return i
 end
 
+local function is_separator(c: string)
+	return c == "(" or c == ")" or c == "," or c == ":" or c == "[" or c == "]"
+end
+
 type Token = Tokenizer.Token
 type Tokens = Tokenizer.Tokens
 type Location = Tokenizer.Location
@@ -519,67 +521,75 @@ local Keywords: {
 	vector3: NodeConstructor<ASTParseVector3 | ASTParseError>,
 }
 
-local function node_from_token<R>(
+local function next_node_from_position<R>(
 	tokens: Tokens,
 	idx: number
 ): (
 	R | ASTParseStringLiteral | ASTParseNumberLiteral | ASTParseError | ASTParseErrorWChildren | nil,
 	number
 )
+	local leading_tokens_consumed = 0
 	local token = tokens[idx]
-	if not token then
-		return NodeConstructors.error(tokens, idx - 1, "Unexpected end of input", 1), 0
+	while token and is_separator(token) do
+		idx += 1
+		leading_tokens_consumed += 1
+		token = tokens[idx]
 	end
 
-	if string.byte(token, 1, 1) == POUND_BYTE then
-		-- Really a no-op
-		return NodeConstructors.comment(tokens, idx)
+	if not token then
+		local node, consumed = NodeConstructors.error(tokens, idx - 1, "Unexpected end of input", 1)
+		return node, consumed + leading_tokens_consumed
 	end
 
 	if token == '"' then
-		return NodeConstructors.string_literal(tokens, idx)
+		local node, consumed = NodeConstructors.string_literal(tokens, idx)
+		return node, consumed + leading_tokens_consumed
 	end
 
 	if tonumber(token) ~= nil then
-		return NodeConstructors.number_literal(tokens, idx)
+		local node, consumed = NodeConstructors.number_literal(tokens, idx)
+		return node, consumed + leading_tokens_consumed
 	end
 
 	local node_ctor = Keywords[token]
 
 	if not node_ctor then
 		if tokens[idx + 1] == "(" then
-			return NodeConstructors.error_with_unparsed_children(tokens, idx, `Unrecognized type identifier {token}`)
+			local node, consumed = NodeConstructors.error_with_unparsed_children(tokens, idx, `Unrecognized type identifier {token}`)
+			return node, consumed + leading_tokens_consumed
 		else
-			return NodeConstructors.error(tokens, idx, `Unrecognized type identifier {token}`, 1)
+			local node, consumed = NodeConstructors.error(tokens, idx, `Unrecognized type identifier {token}`, 1)
+			return node, consumed + leading_tokens_consumed
 		end
 	end
 
-	return node_ctor(tokens, idx)
+	local node, node_consumed = node_ctor(tokens, idx)
+	return node, node_consumed + leading_tokens_consumed
 end
 
 local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | ASTParseErrorWChildren, number)
 	local lhs, rhs, consumed
 	local consumed_total = 0
-	lhs, consumed = node_from_token(tokens, idx)
+	lhs, consumed = next_node_from_position(tokens, idx)
 	consumed_total += consumed
 	idx += consumed
 
 	if tokens[idx] == ":" then
 		idx += 1
-		rhs, consumed = node_from_token(tokens, idx)
+		rhs, consumed = next_node_from_position(tokens, idx)
 		consumed_total += (consumed + 1)
 		idx += consumed
 
 		return NodeConstructors.binding(tokens, idx, { lhs, rhs }, consumed_total)
 	else
-		rhs, consumed = node_from_token(tokens, idx)
+		rhs, consumed = next_node_from_position(tokens, idx)
 		consumed_total += consumed
 		idx += consumed
 
 		return NodeConstructors.error_with_children(
 			tokens,
 			idx - consumed_total,
-			`Type binding missing assignment separator`,
+			`Colon required after left hand side of type binding`,
 			consumed_total,
 			{ lhs, rhs }
 		)
@@ -611,12 +621,6 @@ local function parse_binding_list(
 
 		if tokens[idx] == ")" then
 			break
-		end
-
-		if string.byte(tokens[idx], 1, 1) == POUND_BYTE then
-			idx += 1
-			consumed_total += 1
-			continue
 		end
 
 		local child, consumed = parse_binding(tokens, idx)
@@ -658,7 +662,7 @@ local function parse_chunk(tokens: Tokens, idx: number): (ASTParseChildren, numb
 			continue
 		end
 
-		local root_node, children_consumed = node_from_token(tokens, idx)
+		local root_node, children_consumed = next_node_from_position(tokens, idx)
 
 		consumed += children_consumed
 		idx += children_consumed

@@ -1,12 +1,10 @@
 # SerDesmond
 
-A runtime SerDes IDL for luau buffers.
+A WIP runtime SerDes IDL for luau buffers.
 
-It is WIP.
+This project makes the silly choice to compile a string to SerDes functions. 
 
-Since it uses strings as input it is inherently unable to return functions with the proper type. We may expose a way to construct the SerDes functions more directly to work around this in the future.
-
-```luau
+```lua
 local SerDesmond = require("../SerDesmond")
 
 local ser, des, _ = SerDesmond.Compile([[
@@ -20,7 +18,7 @@ local ser, des, _ = SerDesmond.Compile([[
 	)
 ]])
 
-local buf: buffer = ser({
+local buf = ser({
 	{ asdf = 1 },
 	Vector3.new(2, 3, 4),
 	"yooo",
@@ -32,19 +30,13 @@ local buf: buffer = ser({
 local original = des(buf)
 ```
 
-## Performance
+# Why tho??
 
-**Performance is highly WIP and will get much better**
+Just an experimental project!
 
-These figures are from a machine using a desktop Ryzen 5 1600x (one of the earliest ryzen processors) with modules in native mode. We use Squash as a reference since it is the most equivalent project.
+The only concrete advantage at the moment is that your SerDes source is itself a serialized SerDes source, which could come in handy. Composition of SerDes strings could also be interesting.
 
-### Compilation
-Obviously SerDesmond is much slower to construct than Squash due to having a compilation from string stage. It will never be as fast as Squash in this regard, it will always be orders of magnitude slower (currently ~1.5 to 2.5 orders of magnitude slower). However, it can compile about 1.3-2.1mB/s depending on the structure. Larger structures tend to have higher throughput. I can compile a simple map 45k times per second with 1.35 mB/s throughput while the ManyFieldsCompTest compiles 14k times per second with a throughput of ~2.1 mB/s on my machine. Whitespace can inflate perceived throughput values since they do not entail any work in the compilation stage.
+Since it uses strings as input it is inherently unable to return functions with the proper type. We may expose a way to construct the SerDes functions more directly to work around this in the future. In the meantime if that is a deal breaker, then [Squash](https://github.com/Data-Oriented-House/Squash) is a good non-experimental choice that also supports instances directly.
 
-It seems that it's already the case that only truly massive structures need to worry about compilation time, which should generally be done only once on application startup to begin with.
+Advantages that could be leveraged from an AST, in practice, are not really advantages because they could be applied to other libraries as well (though they currently are not) without having to parse a string input. Plus, we still have the fact that the most primitive "instruction" we can compile down to is a pre-written luau function.
 
-### SerDes
-
-SerDes performance is about the same as any other buffer SerDes library since we still compile down to the same constructs as them. There is a lot of work left to do to get everything up to par, but also additional opportunity in this aspect since we can analyze the AST and form some higher-performing functions (we currently don't do this almost at all).
-
-Due to lack of time in the oven, desmond may be slower in some scenarios or may be missing byte-saving strategies, but it is already faster sometimes since it does not try to reallocate buffers on every write like similar libraries. E.G. writing an 18 element array is marginally faster than Squash, meanwhile writing to a struct with 3 fields is marginally slower. Large structures should expect overall better performance due to lack of buffer reallocations.

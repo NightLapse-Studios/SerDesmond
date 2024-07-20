@@ -114,7 +114,7 @@ function mod.GiveLM(lm)
 	lm.RegisterModuleStage(STAGE_NAME, STAGE_PRIORITY, run_module_stage, nil, should_run_stage)
 end
 
-export type Tester = typeof(mod.Tester(""))
+export type Tester = typeof(NewTester(""))
 
 local function try_new_output_buf(self: Tester, name: string)
 	if self.TestOutputs[name] then

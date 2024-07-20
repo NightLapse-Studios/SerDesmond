@@ -135,6 +135,13 @@ type ASTParseStruct = {
 	TokenIndex: number,
 	TokenSize: number,
 }
+type ASTParseCFrame = {
+	Type: "cframe",
+	Value: { PrimitiveLiterals | ASTParseError },
+	Extra: false,
+	TokenIndex: number,
+	TokenSize: number,
+}
 
 type ASTParseChildren = { ASTParseNodes }
 type ASTParseTerminal =
@@ -153,6 +160,7 @@ type ASTParseHostNodes =
 		| ASTParseMap
 		| ASTParseStruct
 		| ASTParseErrorWChildren
+		| ASTParseCFrame
 	}
 type ASTParseTerminals = { ASTParseTerminal | ASTParseError | ASTParseErrorWChildren }
 type ASTParseNodes =
@@ -171,6 +179,7 @@ type ASTParseNodes =
 	| ASTParseMap
 	| ASTParseString
 	| ASTParseStruct
+	| ASTParseCFrame
 
 type ASTValidRoot = {
 	Type: "root",
@@ -270,12 +279,27 @@ type ASTValidStruct = {
 	TokenIndex: number,
 	TokenSize: number,
 }
+type ASTValidCFrame = {
+	Type: "cframe",
+	Value: { PrimitiveLiterals },
+	Extra: false,
+	TokenIndex: number,
+	TokenSize: number,
+}
 
 type ASTValidChildren = { ASTValidNodes }
 type ASTValidTerminal = ASTValidTypeLiteral | ASTValidStringLiteral | ASTValidNumberLiteral | ASTValidString
 type ASTValidHostNodes =
 	{ ASTValidTerminal }
-	& { ASTValidVector3 | ASTValidEnum | ASTValidArray | ASTValidPeriodicArray | ASTValidMap | ASTValidStruct }
+	& { 
+		ASTValidVector3
+		| ASTValidEnum
+		| ASTValidArray
+		| ASTValidPeriodicArray
+		| ASTValidMap
+		| ASTValidStruct
+		| ASTValidCFrame
+	}
 type ASTValidTerminals = { ASTValidTerminal }
 type ASTValidNodes =
 	ASTValidComment
@@ -291,6 +315,7 @@ type ASTValidNodes =
 	| ASTValidMap
 	| ASTValidString
 	| ASTValidStruct
+	| ASTValidCFrame
 
 local TAB_BYTE = string.byte("\t")
 
@@ -519,6 +544,7 @@ local Keywords: {
 	map: NodeConstructor<ASTParseMap | ASTParseError>,
 	struct: NodeConstructor<ASTParseStruct | ASTParseError>,
 	vector3: NodeConstructor<ASTParseVector3 | ASTParseError>,
+	cframe: NodeConstructor<ASTParseCFrame | ASTParseError>,
 }
 
 local function next_node_from_position<R>(
@@ -970,6 +996,25 @@ local function vector3(tokens: Tokens, idx: number)
 	local node: ASTParseVector3 = new_node("vector3", children, idx, consumed_total)
 	return node, consumed_total
 end
+local function cframe(tokens: Tokens, idx: number)
+	local children, consumed = parse_chunk(tokens, idx + 1)
+	local consumed_total = consumed + 1
+
+	local is_ok = #children == 3
+	for i, v in children do
+		if v.Type ~= "type_literal" then
+			is_ok = false
+			break
+		end
+	end
+
+	if not is_ok then
+		return error(tokens, idx, "cframe expects 3 type literals (for encoding its position vector)", consumed_total)
+	end
+
+	local node: ASTParseCFrame = new_node("cframe", children, idx, consumed_total)
+	return node, consumed_total
+end
 local function size_specifier(tokens: Tokens, idx: number)
 	local seperator = tokens[idx + 1]
 	local size = tonumber(tokens[idx + 2])
@@ -1047,6 +1092,7 @@ Keywords = {
 	map = map,
 	struct = struct,
 	vector3 = vector3,
+	cframe = cframe,
 }
 
 -- Visitor that can take in non-error-checked ASTs
@@ -1066,7 +1112,8 @@ type ParseVisitor<
 	SizeSpecifierRet,
 	BindingRet,
 	MapRet,
-	StructRet
+	StructRet,
+	CFrameRet
 > = {
 	root: (ParentVisitor, ASTParseRoot) -> RootRet,
 	comment: (ParentVisitor, ASTParseComment) -> CommentRet,
@@ -1083,6 +1130,7 @@ type ParseVisitor<
 	map: (ParentVisitor, ASTParseMap) -> MapRet,
 	string: (ParentVisitor, ASTParseString) -> StringRet,
 	struct: (ParentVisitor, ASTParseStruct) -> StructRet,
+	cframe: (ParentVisitor, ASTParseCFrame) -> CFrameRet,
 }
 
 type ValidVisitor<
@@ -1099,7 +1147,8 @@ type ValidVisitor<
 	SizeSpecifierRet,
 	BindingRet,
 	MapRet,
-	StructRet
+	StructRet,
+	CFrameRet
 > = {
 	root: (ParentVisitor, ASTValidRoot) -> RootRet,
 	type_literal: (ParentVisitor, ASTValidTypeLiteral) -> TypeLiteralRet,
@@ -1114,12 +1163,13 @@ type ValidVisitor<
 	map: (ParentVisitor, ASTValidMap) -> MapRet,
 	string: (ParentVisitor, ASTValidString) -> StringRet,
 	struct: (ParentVisitor, ASTValidStruct) -> StructRet,
+	cframe: (ParentVisitor, ASTValidCFrame) -> CFrameRet,
 }
 
 -- stylua: ignore
 type AnnotateSourceVisitor = ParseVisitor<
 	AnnotateSourceVisitor,
-	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
+	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 >
 
 local function AnnotateSource(node: ASTParseNodes, src: string, locations: { TokenLocation })
@@ -1222,6 +1272,10 @@ local function AnnotateSource(node: ASTParseNodes, src: string, locations: { Tok
 			try_print_line(locations[node.TokenIndex].Start.Line)
 			VisitorTraverseChildren(self, node)
 		end,
+		cframe = function(self, node)
+			try_print_line(locations[node.TokenIndex].Start.Line)
+			VisitorTraverseChildren(self, node)
+		end
 	}
 
 	ASTNodeAccept(node, AnnotateSourceVisitor)
@@ -1230,7 +1284,7 @@ end
 -- stylua: ignore
 type PrintASTVisitor = ParseVisitor<
 	PrintASTVisitor,
-	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
+	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 >
 
 local function PrintAST(ast: ASTParseRoot | ASTValidRoot)
@@ -1320,6 +1374,12 @@ local function PrintAST(ast: ASTParseRoot | ASTValidRoot)
 			VisitorTraverseChildren(self, node)
 			indent -= 1
 		end,
+		cframe = function(self, node)
+			print_desc(self, "cframe")
+			indent += 1
+			VisitorTraverseChildren(self, node)
+			indent -= 1
+		end
 	}
 
 	ASTNodeAccept(ast, visitor)
@@ -1339,6 +1399,7 @@ type ValidateVisitor = ParseVisitor<
 	number?,
 	number?,
 	nil,
+	number?,
 	number?,
 	number?,
 	number?
@@ -1395,6 +1456,9 @@ local ValidateVisitor: ValidateVisitor = {
 	binding = function(self, node)
 		return sum(VisitorCollectChildren(self, node))
 	end,
+	cframe = function(self, node)
+		return sum(VisitorCollectChildren(self, node))
+	end
 }
 
 -- Calculates the byte size each argument to the serializer will take up
@@ -1416,7 +1480,8 @@ type SizeCalcVisitor = ValidVisitor<
 	number,
 	(number | SizeCalcFn<unknown>, number | SizeCalcFn<unknown>) -> number,
 	SizeCalcFn<{ [string]: number }> | SizeCalcFn<{ unknown }>,
-	SizeCalcFn<{ [string | number]: unknown }> | number
+	SizeCalcFn<{ [string | number]: unknown }> | number,
+	number
 >
 
 local SizeCalcVisitor: SizeCalcVisitor = {
@@ -1599,6 +1664,9 @@ local SizeCalcVisitor: SizeCalcVisitor = {
 	vector3 = function(self, node)
 		return sum(VisitorCollectChildren(self, node))
 	end,
+	cframe = function(self, node)
+		return sum(VisitorCollectChildren(self, node)) + 6
+	end
 }
 
 -- Serialize/deserialize visitors assume the AST has not been mutated between each-others visits
@@ -1619,7 +1687,8 @@ type SerializeVisitor = ValidVisitor<
 	WriterFn<number>,
 	(unknown, unknown, buffer, number) -> number,
 	WriterFn<{ [unknown]: unknown }>,
-	WriterFn<{ [unknown]: unknown }>
+	WriterFn<{ [unknown]: unknown }>,
+	WriterFn<CFrame>
 >
 
 local SerializeVisitor: SerializeVisitor = {
@@ -1801,6 +1870,32 @@ local SerializeVisitor: SerializeVisitor = {
 
 		return f
 	end,
+	cframe = function(self, node)
+		local fns = VisitorCollectChildren(self, node)
+
+		local function f(v: CFrame, b: buffer, idx: number)
+			local s = 0
+			s += fns[1](v.X, b, idx + s)
+			s += fns[2](v.Y, b, idx + s)
+			s += fns[3](v.Z, b, idx + s)
+
+			idx += s
+			
+			local r = 2^15 - 1
+			local pitch, yaw, roll = v:ToEulerAnglesYXZ()
+			pitch = (pitch / math.pi * r) // 1
+			yaw = (yaw / math.pi * r) // 1
+			roll = (roll / math.pi * r) // 1
+			
+			buffer.writei16(b, idx, pitch)
+			buffer.writei16(b, idx + 2, yaw)
+			buffer.writei16(b, idx + 4, roll)
+
+			return s + 6
+		end
+
+		return f
+	end
 }
 
 type ReaderFn<V> = (buffer: buffer, idx: number) -> (V, number)
@@ -1818,7 +1913,8 @@ type DeserializeVisitor = ValidVisitor<
 	ReaderFn<number>,
 	(buffer, number) -> (unknown, unknown, number),
 	ReaderFn<{ [unknown]: unknown }>,
-	ReaderFn<{ [unknown]: unknown }>
+	ReaderFn<{ [unknown]: unknown }>,
+	ReaderFn<CFrame>
 >
 
 local DeserializeVisitor: DeserializeVisitor = {
@@ -2015,6 +2111,33 @@ local DeserializeVisitor: DeserializeVisitor = {
 			return l, r, s + s2
 		end
 	end,
+	cframe = function(self, node)
+		local fns = VisitorCollectChildren(self, node)
+
+		local function f(b: buffer, idx: number)
+			local s = 0
+			local x, s1 = fns[1](b, idx + s)
+			s += s1
+			local y, s1 = fns[2](b, idx + s)
+			s += s1
+			local z, s1 = fns[3](b, idx + s)
+			s += s1
+
+			idx += s
+
+			local r = 2^15 - 1
+			local pitch = buffer.readi16(b, idx)
+			local yaw = buffer.readi16(b, idx + 2)
+			local roll = buffer.readi16(b, idx + 4)
+
+			local v = CFrame.new(Vector3.new(x, y, z))
+				 * CFrame.fromEulerAnglesYXZ(pitch / r * math.pi, yaw / r * math.pi, roll / r * math.pi)
+			
+			return v, s + 6
+		end
+
+		return f
+	end
 }
 
 local function str_to_ast(str)

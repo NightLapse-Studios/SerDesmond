@@ -91,7 +91,7 @@ function mod.__tests(G, T)
 
 		local max_depth = 3
 		local binding_blacklist = { "binding" }
-		local max_depth_blacklist = { "array", "binding", "map", "enum", "struct", "periodic_array" }
+		local max_depth_blacklist = { "array", "binding", "map", "enum", "struct", "periodic_array", "cframe" }
 		local literals_blacklist = {
 			"array",
 			"binding",
@@ -107,6 +107,7 @@ function mod.__tests(G, T)
 			"u32",
 			"string",
 			"vector3",
+			"cframe",
 		}
 
 		-- Construct a SerDes string and an object that can be passed to it once compiled
@@ -238,6 +239,11 @@ function mod.__tests(G, T)
 				local ex = math.random(-99, 99)
 				return tostring(ex), ex
 			end,
+			-- CFrame can't be fuzzed because it outputs floats no matter what
+--[[ 			cframe = function()
+				local ex = CFrame.new(Vector3.new(math.random(1, 2^8-1), math.random(1, 2^8-1), math.random(1, 2^8-1)), Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5))
+				return "cframe(u8,u8,u8)", ex
+			end ]]
 		}
 
 		GeneratorsRandom = {}

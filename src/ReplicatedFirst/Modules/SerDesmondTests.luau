@@ -76,6 +76,9 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 				map(i8: string)
 			)
 		]]
+		local cframe_test_string = [[
+			cframe(i8, u32, i8)
+		]]
 
 		local _, struct = pcall(function()
 			return SerDesmond.PrettyCompile(struct_str)
@@ -97,6 +100,9 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 		end)
 		local _, array_contains_host_nodes = pcall(function()
 			return SerDesmond.PrettyCompile(array_contains_host_nodes_str)
+		end)
+		local _, cframe_test = pcall(function()
+			return SerDesmond.PrettyCompile(cframe_test_string)
 		end)
 
 		T:Test("Size specifier", function()
@@ -342,6 +348,20 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 				T.Equal,
 				t[1][2],
 				3.140000104904175
+			)
+		end)
+		T:Test("CFrame", function()
+			T:ForContext("Compile",
+				T.Equal, typeof(cframe_test.Serialize), "function",
+				T.Equal, typeof(cframe_test.Deserialize), "function"
+			)
+
+			t = cframe_test.Deserialize(cframe_test.Serialize(CFrame.new(Vector3.new(), Vector3.new(1, 1, 1))))
+			local look = t.LookVector
+			T:ForContext("SerDes",
+				T.FuzzyEqual(1/100), look.X, 0.5773,
+				T.FuzzyEqual(1/100), look.Y, 0.5773,
+				T.FuzzyEqual(1/100), look.Z, 0.5773
 			)
 		end)
 		T:Test("Comments", function()

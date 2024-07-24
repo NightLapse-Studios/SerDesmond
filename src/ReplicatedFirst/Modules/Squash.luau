@@ -2,7 +2,7 @@
 --!native
 --!optimize 2
 
---- An import of the [Redblox Buffit Cursor](https://github.com/red-blox/Util/blob/main/libs/Buffit/Buffit.luau) type for better cross-library interaction
+-- An import of the [Redblox Buffit Cursor](https://github.com/red-blox/Util/blob/main/libs/Buffit/Buffit.luau) type for better cross-library interaction
 export type Cursor = {
 	Buf: buffer,
 	Pos: number,
@@ -65,7 +65,7 @@ end
 local function pushu3(cursor: Cursor, x: number)
 	tryRealloc(cursor, 3)
 	buffer.writeu8(cursor.Buf, cursor.Pos, x)
-	buffer.writeu16(cursor.Buf, cursor.Pos + 1, x // 256)
+	buffer.writeu16(cursor.Buf, cursor.Pos + 1, x / 256)
 	cursor.Pos += 3
 end
 
@@ -90,7 +90,7 @@ end
 local function pushu5(cursor: Cursor, x: number)
 	tryRealloc(cursor, 5)
 	buffer.writeu8(cursor.Buf, cursor.Pos, x)
-	buffer.writeu32(cursor.Buf, cursor.Pos + 1, x // 256)
+	buffer.writeu32(cursor.Buf, cursor.Pos + 1, x / 256)
 	cursor.Pos += 5
 end
 
@@ -104,7 +104,7 @@ end
 local function pushu6(cursor: Cursor, x: number)
 	tryRealloc(cursor, 6)
 	buffer.writeu16(cursor.Buf, cursor.Pos, x)
-	buffer.writeu32(cursor.Buf, cursor.Pos + 2, x // 256 ^ 2)
+	buffer.writeu32(cursor.Buf, cursor.Pos + 2, x / 256 ^ 2)
 	cursor.Pos += 6
 end
 
@@ -118,8 +118,8 @@ end
 local function pushu7(cursor: Cursor, x: number)
 	tryRealloc(cursor, 7)
 	buffer.writeu8(cursor.Buf, cursor.Pos, x)
-	buffer.writeu16(cursor.Buf, cursor.Pos + 1, x // 256)
-	buffer.writeu32(cursor.Buf, cursor.Pos + 3, x // 256 ^ 3)
+	buffer.writeu16(cursor.Buf, cursor.Pos + 1, x / 256)
+	buffer.writeu32(cursor.Buf, cursor.Pos + 3, x / 256 ^ 3)
 	cursor.Pos += 7
 end
 
@@ -134,7 +134,7 @@ end
 local function pushu8(cursor: Cursor, x: number)
 	tryRealloc(cursor, 8)
 	buffer.writeu32(cursor.Buf, cursor.Pos, x)
-	buffer.writeu32(cursor.Buf, cursor.Pos + 4, x // 256 ^ 4)
+	buffer.writeu32(cursor.Buf, cursor.Pos + 4, x / 256 ^ 4)
 	cursor.Pos += 8
 end
 
@@ -172,7 +172,7 @@ local function pushi3(cursor: Cursor, x: number)
 	x = if x < 0 then 256 ^ 3 + x else x
 	tryRealloc(cursor, 3)
 	buffer.writeu8(cursor.Buf, cursor.Pos, x)
-	buffer.writeu16(cursor.Buf, cursor.Pos + 1, x // 256)
+	buffer.writeu16(cursor.Buf, cursor.Pos + 1, x / 256)
 	cursor.Pos += 3
 end
 
@@ -200,7 +200,7 @@ local function pushi5(cursor: Cursor, x: number)
 	x = if x < 0 then 256 ^ 5 + x else x
 	tryRealloc(cursor, 5)
 	buffer.writei8(cursor.Buf, cursor.Pos, x)
-	buffer.writei32(cursor.Buf, cursor.Pos + 1, x // 256)
+	buffer.writei32(cursor.Buf, cursor.Pos + 1, x / 256)
 	cursor.Pos += 5
 end
 
@@ -217,7 +217,7 @@ local function pushi6(cursor: Cursor, x: number)
 	x = if x < 0 then 256 ^ 6 + x else x
 	tryRealloc(cursor, 6)
 	buffer.writei16(cursor.Buf, cursor.Pos, x)
-	buffer.writei32(cursor.Buf, cursor.Pos + 2, x // 256 ^ 2)
+	buffer.writei32(cursor.Buf, cursor.Pos + 2, x / 256 ^ 2)
 	cursor.Pos += 6
 end
 
@@ -234,8 +234,8 @@ local function pushi7(cursor: Cursor, x: number)
 	x = if x < 0 then 256 ^ 7 + x else x
 	tryRealloc(cursor, 7)
 	buffer.writei8(cursor.Buf, cursor.Pos, x)
-	buffer.writei16(cursor.Buf, cursor.Pos + 1, x // 256)
-	buffer.writei32(cursor.Buf, cursor.Pos + 3, x // 256 ^ 3)
+	buffer.writei16(cursor.Buf, cursor.Pos + 1, x / 256)
+	buffer.writei32(cursor.Buf, cursor.Pos + 3, x / 256 ^ 3)
 	cursor.Pos += 7
 end
 
@@ -253,7 +253,7 @@ local function pushi8(cursor: Cursor, x: number)
 	x = if x < 0 then 256 ^ 8 - x else x
 	tryRealloc(cursor, 8)
 	buffer.writei32(cursor.Buf, cursor.Pos, x)
-	buffer.writei32(cursor.Buf, cursor.Pos + 4, x // 256 ^ 4)
+	buffer.writei32(cursor.Buf, cursor.Pos + 4, x / 256 ^ 4)
 	cursor.Pos += 8
 end
 
@@ -287,44 +287,58 @@ local function popf8(cursor: Cursor)
 	return buffer.readf64(cursor.Buf, cursor.Pos)
 end
 
-local function pushbool(cursor: Cursor, a: boolean, b: boolean?, c: boolean?, d: boolean?, e: boolean?, f: boolean?, g: boolean?, h: boolean?)
-	pushu1(cursor,
-		(if a then 1 else 0) +
-		(if b then 2 else 0) +
-		(if c then 4 else 0) +
-		(if d then 8 else 0) +
-		(if e then 16 else 0) +
-		(if f then 32 else 0) +
-		(if g then 64 else 0) +
-		(if h then 128 else 0)
+local function pushbool(
+	cursor: Cursor,
+	a: boolean,
+	b: boolean?,
+	c: boolean?,
+	d: boolean?,
+	e: boolean?,
+	f: boolean?,
+	g: boolean?,
+	h: boolean?
+)
+	pushu1(
+		cursor,
+		(if a then 1 else 0)
+			+ (if b then 2 else 0)
+			+ (if c then 4 else 0)
+			+ (if d then 8 else 0)
+			+ (if e then 16 else 0)
+			+ (if f then 32 else 0)
+			+ (if g then 64 else 0)
+			+ (if h then 128 else 0)
 	)
 end
 
 local function popbool(cursor: Cursor): (boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean)
 	local x = popu1(cursor)
-	return
-		x % 2 >= 1,
-		x % 4 >= 2,
-		x % 8 >= 4,
-		x % 16 >= 8,
-		x % 32 >= 16,
-		x % 64 >= 32,
-		x % 128 >= 64,
-		x % 256 >= 128
+	return x % 2 >= 1, x % 4 >= 2, x % 8 >= 4, x % 16 >= 8, x % 32 >= 16, x % 64 >= 32, x % 128 >= 64, x % 256 >= 128
 end
 
 local function pushvlq(cursor: Cursor, x: number)
-	local x0 = x // 128 ^ 0 % 128
-	local x1 = x // 128 ^ 1 % 128
-	local x2 = x // 128 ^ 2 % 128
-	local x3 = x // 128 ^ 3 % 128
-	local x4 = x // 128 ^ 4 % 128
-	local x5 = x // 128 ^ 5 % 128
-	local x6 = x // 128 ^ 6 % 128
-	local x7 = x // 128 ^ 7 % 128
+	local x0 = x / 128 ^ 0 % 128
+	local x1 = x / 128 ^ 1 % 128
+	local x2 = x / 128 ^ 2 % 128
+	local x3 = x / 128 ^ 3 % 128
+	local x4 = x / 128 ^ 4 % 128
+	local x5 = x / 128 ^ 5 % 128
+	local x6 = x / 128 ^ 6 % 128
+	local x7 = x / 128 ^ 7 % 128
 
 	if x7 ~= 0 then
-		pushu8(cursor, x0 * 256 ^ 7 + x1 * 256 ^ 6 + x2 * 256 ^ 5 + x3 * 256 ^ 4 + x4 * 256 ^ 3 + x5 * 256 ^ 2 + x6 * 256 + x7 + 128)
+		pushu8(
+			cursor,
+			x0 * 256 ^ 7
+				+ x1 * 256 ^ 6
+				+ x2 * 256 ^ 5
+				+ x3 * 256 ^ 4
+				+ x4 * 256 ^ 3
+				+ x5 * 256 ^ 2
+				+ x6 * 256
+				+ x7
+				+ 128
+		)
 	elseif x6 ~= 0 then
 		pushu7(cursor, x0 * 256 ^ 6 + x1 * 256 ^ 5 + x2 * 256 ^ 4 + x3 * 256 ^ 3 + x4 * 256 ^ 2 + x5 * 256 + x6 + 128)
 	elseif x5 ~= 0 then
@@ -431,7 +445,7 @@ local function popbuf(cursor: Cursor, length: number?)
 end
 
 local function printcursor(cursor: Cursor): ()
-	local bytes = {string.byte(buffer.tostring(cursor.Buf), 1, -1)}
+	local bytes = { string.byte(buffer.tostring(cursor.Buf), 1, -1) }
 	local offset = 7
 	for i = 1, cursor.Pos do
 		local byte = bytes[i]
@@ -442,14 +456,16 @@ local function printcursor(cursor: Cursor): ()
 	local lastByte = bytes[cursor.Pos + 1]
 	if lastByte then
 		local lastDigits = if lastByte == 0 then 1 else math.ceil(math.log10(1 + lastByte))
-		offset += lastDigits // 2
+		offset += lastDigits / 2
 	end
 
 	if #bytes == 0 or cursor.Pos == buffer.len(cursor.Buf) then
-		table.insert(bytes, ' ' :: any)
+		table.insert(bytes, " " :: any)
 	end
 
-	print(`Pos: {cursor.Pos} / {buffer.len(cursor.Buf)}\nBuf: \{ {table.concat(bytes, ' ')} \}\n{string.rep(' ', offset)}^`)
+	print(
+		`Pos: {cursor.Pos} / {buffer.len(cursor.Buf)}\nBuf: \{ {table.concat(bytes, " ")} \}\n{string.rep(" ", offset)}^`
+	)
 end
 
 local Squash = {}
@@ -652,23 +668,23 @@ function str.alphabet(source: string): string
 	table.sort(alphabet)
 	return table.concat(alphabet)
 end
-str.binary = '01'
-str.octal = '01234567'
-str.decimal = '0123456789'
-str.duodecimal = '0123456789AB'
-str.hexadecimal = '0123456789ABCDEF'
+str.binary = "01"
+str.octal = "01234567"
+str.decimal = "0123456789"
+str.duodecimal = "0123456789AB"
+str.hexadecimal = "0123456789ABCDEF"
 local utf8Characters = table.create(256)
 for i = 0, 255 do
 	utf8Characters[i + 1] = string.char(i)
 end
 str.utf8 = table.concat(utf8Characters)
-str.lower = 'abcdefghijklmnopqrstuvwxyz'
-str.upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+str.lower = "abcdefghijklmnopqrstuvwxyz"
+str.upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 str.letters = str.lower .. str.upper
-str.punctuation = ' .,?!:;\'"-_'
+str.punctuation = " .,?!:;'\"-_"
 str.english = str.letters .. str.punctuation
-str.filepath = str.letters .. ':/'
-str.datastore = ' !#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~'
+str.filepath = str.letters .. ":/"
+str.datastore = " !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~"
 
 local str = setmetatable(str, stringMeta)
 Squash.string = str
@@ -737,26 +753,28 @@ function Squash.vlq(): SerDes<number>
 end
 
 local arrayCache = {}
-local function array<T>(serdes: SerDes<T>, length: number?): SerDes<{T}>
+local function array<T>(serdes: SerDes<T>, length: number?): SerDes<{ T }>
 	if arrayCache[serdes] then
 		return arrayCache[serdes]
 	end
 
 	local push, pop = serdes.ser, serdes.des
 
-	local arr: SerDes<{T}> = {
-		ser = if length then function(cursor, xs)
-			local push = push --? Store repeatedly-accessed Upvalue in local variable
-			for i = 1, length do
-				push(cursor, xs[i])
+	local arr: SerDes<{ T }> = {
+		ser = if length
+			then function(cursor, xs)
+				local push = push --? Store repeatedly-accessed Upvalue in local variable
+				for i = 1, length do
+					push(cursor, xs[i])
+				end
 			end
-		end else function(cursor, xs)
-			local push = push --? Store repeatedly-accessed Upvalue in local variable
-			for _, x in xs do
-				push(cursor, x)
-			end
-			pushvlq(cursor, #xs)
-		end,
+			else function(cursor, xs)
+				local push = push --? Store repeatedly-accessed Upvalue in local variable
+				for _, x in xs do
+					push(cursor, x)
+				end
+				pushvlq(cursor, #xs)
+			end,
 
 		des = function(cursor)
 			local pop = pop --? Store repeatedly-accessed Upvalue in local variable
@@ -803,7 +821,7 @@ end
 local function record<T>(schema: T & {}): SerDes<T>
 	local properties = {}
 	for prop in schema :: any do
-		if type(prop) == 'string' then
+		if type(prop) == "string" then
 			table.insert(properties, prop)
 		end
 	end
@@ -833,13 +851,13 @@ local function record<T>(schema: T & {}): SerDes<T>
 end
 Squash.record = record
 
-local function map<K, V>(keySerDes: SerDes<K>, valueSerDes: SerDes<V>): SerDes<{[K]: V}>
+local function map<K, V>(keySerDes: SerDes<K>, valueSerDes: SerDes<V>): SerDes<{ [K]: V }>
 	return {
 		ser = function(cursor, map)
 			local size = 0
 			for k, v in map :: any do
-				(valueSerDes :: any).ser(cursor, v)
-				;(keySerDes :: any).ser(cursor, k)
+				(valueSerDes :: any).ser(cursor, v);
+				(keySerDes :: any).ser(cursor, k)
 				size += 1
 			end
 			pushvlq(cursor, size)
@@ -967,7 +985,9 @@ local function enumitem(enum: Enum): SerDes<EnumItem>
 	end
 
 	local sortedItems = enum:GetEnumItems()
-	table.sort(sortedItems, function(a, b) return a.Value < b.Value end)
+	table.sort(sortedItems, function(a, b)
+		return a.Value < b.Value
+	end)
 
 	local itemsToIds = {}
 	local idsToItems = table.create(#sortedItems)
@@ -1043,32 +1063,33 @@ local function cframe(positionSerDes: SerDes<number>): SerDes<CFrame>
 	end
 
 	--? Not defined outside so pure Luau users don't suffer errors
-	idToCFrame = idToCFrame or {
-		CFrame.Angles(0, 0, 0),
-		CFrame.Angles(math.rad(90), 0, 0),
-		CFrame.Angles(0, math.rad(180), math.rad(180)),
-		CFrame.Angles(math.rad(-90), 0, 0),
-		CFrame.Angles(0, math.rad(180), math.rad(90)),
-		CFrame.Angles(0, math.rad(90), math.rad(90)),
-		CFrame.Angles(0, 0, math.rad(90)),
-		CFrame.Angles(0, math.rad(-90), math.rad(90)),
-		CFrame.Angles(math.rad(-90), math.rad(-90), 0),
-		CFrame.Angles(0, math.rad(-90), 0),
-		CFrame.Angles(math.rad(90), math.rad(-90), 0),
-		CFrame.Angles(0, math.rad(90), math.rad(180)),
-		CFrame.Angles(0, math.rad(-90), math.rad(180)),
-		CFrame.Angles(0, math.rad(180), math.rad(0)),
-		CFrame.Angles(math.rad(-90), math.rad(-180), math.rad(0)),
-		CFrame.Angles(0, math.rad(0), math.rad(180)),
-		CFrame.Angles(math.rad(90), math.rad(180), math.rad(0)),
-		CFrame.Angles(0, math.rad(0), math.rad(-90)),
-		CFrame.Angles(0, math.rad(-90), math.rad(-90)),
-		CFrame.Angles(0, math.rad(-180), math.rad(-90)),
-		CFrame.Angles(0, math.rad(90), math.rad(-90)),
-		CFrame.Angles(math.rad(90), math.rad(90), 0),
-		CFrame.Angles(0, math.rad(90), 0),
-		CFrame.Angles(math.rad(-90), math.rad(90), 0),
-	}
+	idToCFrame = idToCFrame
+		or {
+			CFrame.Angles(0, 0, 0),
+			CFrame.Angles(math.rad(90), 0, 0),
+			CFrame.Angles(0, math.rad(180), math.rad(180)),
+			CFrame.Angles(math.rad(-90), 0, 0),
+			CFrame.Angles(0, math.rad(180), math.rad(90)),
+			CFrame.Angles(0, math.rad(90), math.rad(90)),
+			CFrame.Angles(0, 0, math.rad(90)),
+			CFrame.Angles(0, math.rad(-90), math.rad(90)),
+			CFrame.Angles(math.rad(-90), math.rad(-90), 0),
+			CFrame.Angles(0, math.rad(-90), 0),
+			CFrame.Angles(math.rad(90), math.rad(-90), 0),
+			CFrame.Angles(0, math.rad(90), math.rad(180)),
+			CFrame.Angles(0, math.rad(-90), math.rad(180)),
+			CFrame.Angles(0, math.rad(180), math.rad(0)),
+			CFrame.Angles(math.rad(-90), math.rad(-180), math.rad(0)),
+			CFrame.Angles(0, math.rad(0), math.rad(180)),
+			CFrame.Angles(math.rad(90), math.rad(180), math.rad(0)),
+			CFrame.Angles(0, math.rad(0), math.rad(-90)),
+			CFrame.Angles(0, math.rad(-90), math.rad(-90)),
+			CFrame.Angles(0, math.rad(-180), math.rad(-90)),
+			CFrame.Angles(0, math.rad(90), math.rad(-90)),
+			CFrame.Angles(math.rad(90), math.rad(90), 0),
+			CFrame.Angles(0, math.rad(90), 0),
+			CFrame.Angles(math.rad(-90), math.rad(90), 0),
+		}
 
 	local push, pop = positionSerDes.ser, positionSerDes.des
 
@@ -1129,10 +1150,7 @@ local function pushcolorsequencekeypoint(cursor, keypoint)
 	pushu1(cursor, keypoint.Time * 255)
 end
 local function popcolorsequencekeypoint(cursor)
-	return ColorSequenceKeypoint.new(
-		popu1(cursor) / 255,
-		popcolor3(cursor)
-	)
+	return ColorSequenceKeypoint.new(popu1(cursor) / 255, popcolor3(cursor))
 end
 local colorSequenceKeypointCache: SerDes<ColorSequenceKeypoint> = {
 	ser = pushcolorsequencekeypoint,
@@ -1204,11 +1222,7 @@ local floatCurveKeyCache: SerDes<FloatCurveKey> = {
 	end,
 
 	des = function(cursor)
-		return FloatCurveKey.new(
-			popf4(cursor),
-			popf4(cursor),
-			enumitem(Enum.KeyInterpolationMode).des(cursor) :: any
-		)
+		return FloatCurveKey.new(popf4(cursor), popf4(cursor), enumitem(Enum.KeyInterpolationMode).des(cursor) :: any)
 	end,
 }
 function Squash.FloatCurveKey(): SerDes<FloatCurveKey>
@@ -1217,7 +1231,8 @@ end
 
 local fontCache: SerDes<Font> = {
 	ser = function(cursor, font)
-		local family = string.match(font.Family, "rbxasset://fonts/families/(.+).json") or error(`Invalid font family {font.Family}`)
+		local family = string.match(font.Family, "rbxasset://fonts/families/(.+).json")
+			or error(`Invalid font family {font.Family}`)
 		pushstr(cursor, family)
 		pushbool(cursor, font.Bold)
 		enumitem(Enum.FontWeight).ser(cursor, font.Weight)
@@ -1307,7 +1322,7 @@ local function numbersequence(serdes: SerDes<number>): SerDes<NumberSequence>
 		des = function(cursor)
 			local count = popvlq(cursor)
 			local keypoints = table.create(count)
-			for i = count,  1, -1 do
+			for i = count, 1, -1 do
 				keypoints[i] = pop(cursor)
 			end
 			return NumberSequence.new(keypoints)
@@ -1319,7 +1334,7 @@ local function numbersequence(serdes: SerDes<number>): SerDes<NumberSequence>
 end
 Squash.NumberSequence = numbersequence
 
---- Does not encode instance data at all.
+-- Does not encode instance data at all.
 local overlapParamsCache: SerDes<OverlapParams> = {
 	ser = function(cursor, params)
 		pushbool(cursor, params.BruteForceAllSlow, params.RespectCanCollide)
@@ -1425,13 +1440,7 @@ local physicalPropertiesCache: SerDes<PhysicalProperties> = {
 	end,
 
 	des = function(cursor)
-		return PhysicalProperties.new(
-			popf4(cursor),
-			popf4(cursor),
-			popf4(cursor),
-			popf4(cursor),
-			popf4(cursor)
-		)
+		return PhysicalProperties.new(popf4(cursor), popf4(cursor), popf4(cursor), popf4(cursor), popf4(cursor))
 	end,
 }
 function Squash.PhysicalProperties(): SerDes<PhysicalProperties>
@@ -1476,7 +1485,9 @@ export type SquashRaycastResult = {
 }
 
 local raycastResultCache = {}
-function Squash.RaycastResult(serdes: SerDes<number>): { ser: (Cursor, RaycastResult) -> (), des: (Cursor) -> SquashRaycastResult }
+function Squash.RaycastResult(
+	serdes: SerDes<number>
+): { ser: (Cursor, RaycastResult) -> (), des: (Cursor) -> SquashRaycastResult }
 	if raycastResultCache[serdes] then
 		return raycastParamsCache[serdes]
 	end
@@ -1655,7 +1666,7 @@ local tweenInfoCache: SerDes<TweenInfo> = {
 			popbool(cursor),
 			popf4(cursor)
 		)
-	end
+	end,
 }
 function Squash.TweenInfo()
 	return tweenInfoCache

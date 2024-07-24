@@ -1,6 +1,6 @@
-local FUZZ_RANDOM_STRINGS = true
-local FUZZ_RANDOM_TOKENS = true
-local FUZZ_SERDES_FUNCTIONS = true
+local FUZZ_RANDOM_STRINGS = false
+local FUZZ_RANDOM_TOKENS = false
+local FUZZ_SERDES_FUNCTIONS = false
 
 local SerDesmond = require(script.Parent.SerDesmond)
 

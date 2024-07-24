@@ -3,6 +3,8 @@
 
 local Tokenizer = require(script.Tokenizer)
 
+local SCRIPT_NAME = script.Name
+
 local mod = {}
 
 type i8_literal = "i8"
@@ -1167,48 +1169,57 @@ type ValidVisitor<
 }
 
 -- stylua: ignore
-type AnnotateSourceVisitor = ParseVisitor<
-	AnnotateSourceVisitor,
+type ErrorReportVisitor = ParseVisitor<
+	ErrorReportVisitor,
 	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 >
 
-local function AnnotateSource(node: ASTParseNodes, src: string, locations: { TokenLocation })
+local function PrintErrors(node: ASTParseNodes, src: string, locations: { TokenLocation })
 	local source_by_line = string.split(src, "\n")
-	local lines_printed: { boolean } = table.create(#source_by_line)
-	local line_lengths: { number } = table.create(#source_by_line)
+	local line_start_idx: { number } = table.create(#source_by_line)
 
-	for i, v in source_by_line do
-		line_lengths[i] = string.len(v)
+	local s,l
+	local _level = 1
+	local script_pattern = "\." .. SCRIPT_NAME .. "$"
+	local trace = ""
+	repeat
+		_level += 1
+		s, l = debug.info(_level, "sl")
+
+		if s and l and l > -1 then
+			local is_in_this_file = string.find(s, script_pattern, 1, false)
+			if not is_in_this_file then
+				trace ..= s .. " " .. l .. "\n"
+			end
+		else
+			break
+		end
+	until false
+
+	warn("SerDesmond:\nError compiling SerDes string\n\nTraceback:")
+	warn(trace)
+	warn("\n\nRaw source:")
+	warn(src)
+
+	for i = 1, #source_by_line, 1 do
+		line_start_idx[i] = string.len(source_by_line[i - 1] or "") + (line_start_idx[i - 1] or 0) + 1
 	end
 
-	local last_newline_index = 0
-	local function try_print_line(line: number)
-		if lines_printed[line] then
-			return
-		end
-
-		for i = #lines_printed + 1, line, 1 do
-			print(source_by_line[i])
-			lines_printed[i] = true
-			last_newline_index += 1 + if source_by_line[i - 1] then string.len(source_by_line[i - 1]) else 0
-		end
-	end
-
-	local AnnotateSourceVisitor: AnnotateSourceVisitor = {
+	local AnnotateSourceVisitor: ErrorReportVisitor = {
 		root = function(self, node)
 			VisitorTraverseChildren(self, node)
-			try_print_line(#source_by_line)
 		end,
 		comment = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 		end,
 		error = function(self, node)
 			local location = locations[node.TokenIndex]
+
+			warn(`\nL: {location.Start.Line}:{location.Start.Index}`)
 			local line: string = source_by_line[location.Start.Line]
-			try_print_line(location.Start.Line)
+			print(line)
 
 			local err_highlighter = ""
-			for i = last_newline_index, location.Start.Index - 1 do
+			for i = line_start_idx[location.Start.Line], location.Start.Index - 1 do
 				local a = string.byte(src, i, i)
 				if a == TAB_BYTE then
 					err_highlighter ..= "\t"
@@ -1222,58 +1233,45 @@ local function AnnotateSource(node: ASTParseNodes, src: string, locations: { Tok
 				err_highlighter ..= "^"
 			end
 
-			print(err_highlighter)
-			print("Error: " .. node.Extra)
+			warn(err_highlighter)
+			warn("Error: " .. node.Extra)
 
 			if typeof(node.Value) == "table" then
 				VisitorTraverseChildren(self, node)
 			end
 		end,
 		type_literal = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 		end,
 		string_literal = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 		end,
 		number_literal = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 		end,
 		enum = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 			VisitorTraverseChildren(self, node)
 		end,
 		array = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 			VisitorTraverseChildren(self, node)
 		end,
 		periodic_array = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 			VisitorTraverseChildren(self, node)
 		end,
 		vector3 = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 			VisitorTraverseChildren(self, node)
 		end,
 		size_specifier = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 		end,
 		binding = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 			VisitorTraverseChildren(self, node)
 		end,
 		map = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 			VisitorTraverseChildren(self, node)
 		end,
 		string = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 		end,
 		struct = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 			VisitorTraverseChildren(self, node)
 		end,
 		cframe = function(self, node)
-			try_print_line(locations[node.TokenIndex].Start.Line)
 			VisitorTraverseChildren(self, node)
 		end
 	}
@@ -2153,7 +2151,7 @@ function mod.Compile<S, D>(str, annotate_errors: boolean?): (S?, D?, ASTValidRoo
 	local valid_ast_root: ASTValidRoot? = ASTNodeAccept(parsed_ast_root, ValidateVisitor)
 	if not valid_ast_root then
 		if annotate_errors then
-			AnnotateSource(parsed_ast_root, str, locations)
+			PrintErrors(parsed_ast_root, str, locations)
 		end
 
 		return

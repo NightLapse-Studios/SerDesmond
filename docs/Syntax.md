@@ -200,3 +200,23 @@ local ser, des = SerDesmond.Compile([[
 	)
 ]])
 ```
+
+## Attributes
+
+A construct can be prefixed with `@<attribute>` to add metadata to it. This metadata may or may not be used by the compiler, depending on if the attributed feature actually supports the attribute that was applied to it. Non-existent attributes will error, but non-applicable attributes will simply go ignored.
+
+TODO: Optional lint for non-applicable attributes 
+
+### Optional
+
+A binding in a struct can be marked as optional to signify that they may or may not exist in the supplied object. **Currently only `struct` supports this attribute.**
+
+```lua
+SerDesmond.Compile([[
+	struct(
+		@optional
+		"thing1": i8
+	)
+]])
+```
+

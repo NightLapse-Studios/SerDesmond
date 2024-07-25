@@ -13,6 +13,7 @@ local COMMA_BYTE = string.byte(",")
 local COLON_BYTE = string.byte(":")
 local LBRACKET_BYTE = string.byte("[")
 local RBRACKET_BYTE = string.byte("]")
+local AT_BYTE = string.byte("@")
 
 local function is_separator(c: number)
 	return c == OPAREN_BYTE
@@ -21,6 +22,7 @@ local function is_separator(c: number)
 		or c == COLON_BYTE
 		or c == LBRACKET_BYTE
 		or c == RBRACKET_BYTE
+		or c == AT_BYTE
 end
 
 local function is_whitespace(c: number)

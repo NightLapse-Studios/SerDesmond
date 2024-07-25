@@ -25,12 +25,21 @@ type PrimitiveLiterals =
 	| f32_literal
 	| f64_literal
 
+
+
+type NodeAttributes = {
+	[string]: any,
+}
+
+
+
 type ASTParseRoot = {
 	Type: "root",
 	Value: ASTParseChildren,
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseError = {
 	Type: "error",
@@ -38,6 +47,7 @@ type ASTParseError = {
 	Extra: string,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseErrorWChildren = {
 	Type: "error",
@@ -45,6 +55,7 @@ type ASTParseErrorWChildren = {
 	Extra: string,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseComment = {
 	Type: "comment",
@@ -52,6 +63,7 @@ type ASTParseComment = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseTypeLiteral = {
 	Type: "type_literal",
@@ -59,6 +71,7 @@ type ASTParseTypeLiteral = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseStringLiteral = {
 	Type: "string_literal",
@@ -66,6 +79,7 @@ type ASTParseStringLiteral = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseNumberLiteral = {
 	Type: "number_literal",
@@ -73,6 +87,7 @@ type ASTParseNumberLiteral = {
 	Extra: PrimitiveLiterals,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseEnum = {
 	Type: "enum",
@@ -80,6 +95,7 @@ type ASTParseEnum = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseArray = {
 	Type: "array",
@@ -87,6 +103,7 @@ type ASTParseArray = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParsePeriodicArray = {
 	Type: "periodic_array",
@@ -94,6 +111,7 @@ type ASTParsePeriodicArray = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseVector3 = {
 	Type: "vector3",
@@ -101,6 +119,7 @@ type ASTParseVector3 = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseSizeSpecifier = {
 	Type: "size_specifier",
@@ -108,6 +127,7 @@ type ASTParseSizeSpecifier = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseBinding = {
 	Type: "binding",
@@ -115,6 +135,7 @@ type ASTParseBinding = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseMap = {
 	Type: "map",
@@ -122,6 +143,7 @@ type ASTParseMap = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseString = {
 	Type: "string",
@@ -129,6 +151,7 @@ type ASTParseString = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseStruct = {
 	Type: "struct",
@@ -136,6 +159,7 @@ type ASTParseStruct = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTParseCFrame = {
 	Type: "cframe",
@@ -143,6 +167,7 @@ type ASTParseCFrame = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 
 type ASTParseChildren = { ASTParseNodes }
@@ -189,6 +214,7 @@ type ASTValidRoot = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidComment = {
 	Type: "comment",
@@ -196,6 +222,7 @@ type ASTValidComment = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidTypeLiteral = {
 	Type: "type_literal",
@@ -203,6 +230,7 @@ type ASTValidTypeLiteral = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidStringLiteral = {
 	Type: "string_literal",
@@ -210,6 +238,7 @@ type ASTValidStringLiteral = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidNumberLiteral = {
 	Type: "number_literal",
@@ -217,6 +246,7 @@ type ASTValidNumberLiteral = {
 	Extra: PrimitiveLiterals,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidEnum = {
 	Type: "enum",
@@ -224,6 +254,7 @@ type ASTValidEnum = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidArray = {
 	Type: "array",
@@ -231,6 +262,7 @@ type ASTValidArray = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidPeriodicArray = {
 	Type: "periodic_array",
@@ -238,6 +270,7 @@ type ASTValidPeriodicArray = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidVector3 = {
 	Type: "vector3",
@@ -245,6 +278,7 @@ type ASTValidVector3 = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidSizeSpecifier = {
 	Type: "size_specifier",
@@ -252,6 +286,7 @@ type ASTValidSizeSpecifier = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidBinding = {
 	Type: "binding",
@@ -259,6 +294,7 @@ type ASTValidBinding = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidMap = {
 	Type: "map",
@@ -266,6 +302,7 @@ type ASTValidMap = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidString = {
 	Type: "string",
@@ -273,6 +310,7 @@ type ASTValidString = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidStruct = {
 	Type: "struct",
@@ -280,6 +318,7 @@ type ASTValidStruct = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 type ASTValidCFrame = {
 	Type: "cframe",
@@ -287,6 +326,7 @@ type ASTValidCFrame = {
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
+	Attributes: NodeAttributes,
 }
 
 type ASTValidChildren = { ASTValidNodes }
@@ -549,11 +589,15 @@ local Keywords: {
 	cframe: NodeConstructor<ASTParseCFrame | ASTParseError>,
 }
 
+local Attributes = {
+	optional = true,
+}
+
 local function next_node_from_position<R>(
 	tokens: Tokens,
 	idx: number
 ): (
-	R | ASTParseStringLiteral | ASTParseNumberLiteral | ASTParseError | ASTParseErrorWChildren | nil,
+	R | ASTParseStringLiteral | ASTParseNumberLiteral | ASTParseError | ASTParseErrorWChildren,
 	number
 )
 	local leading_tokens_consumed = 0
@@ -577,6 +621,25 @@ local function next_node_from_position<R>(
 	if tonumber(token) ~= nil then
 		local node, consumed = NodeConstructors.number_literal(tokens, idx)
 		return node, consumed + leading_tokens_consumed
+	end
+
+	if token == "@" then
+		local next_node, consumed = next_node_from_position(tokens, idx + 2)
+		
+		local attribute = tokens[idx + 1]
+		if not Attributes[attribute] then
+			if typeof(next_node.Value) == "table" then
+				local err, _ = NodeConstructors.error_with_children(tokens, idx + 1, `Unrecognized attribute {attribute}`, next_node.TokenSize + 2, next_node.Value)
+				return err, consumed + leading_tokens_consumed + 2
+			else
+				local err, _ = NodeConstructors.error_with_children(tokens, idx + 1, `Unrecognized attribute {attribute}`, 3, {next_node})
+				return err, consumed + leading_tokens_consumed + 2
+			end
+		end
+
+		next_node.Attributes[attribute] = true
+
+		return next_node, consumed + leading_tokens_consumed + 2
 	end
 
 	local node_ctor = Keywords[token]
@@ -717,6 +780,7 @@ local function new_node<T, R>(type: string, value: T, index: number, tokens_cons
 		TokenIndex = index,
 		TokenSize = tokens_consumed,
 		Extra = extra or false,
+		Attributes = { } :: NodeAttributes,
 	}
 
 	return node
@@ -956,7 +1020,7 @@ local function struct(tokens: Tokens, idx: number)
 			local child_type = v.Type
 			if child_type ~= "binding" then
 				if child_type ~= "error" then
-					local err, _ = error(tokens, v.TokenIndex, "structs can only contain bindings", v.TokenSize)
+					local err, _ = error(tokens, v.TokenIndex, `struct expected type binding, got {v.Type}`, v.TokenSize)
 					children[i] = err
 				end
 			else

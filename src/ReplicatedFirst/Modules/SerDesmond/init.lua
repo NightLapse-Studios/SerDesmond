@@ -847,9 +847,9 @@ local function number_literal(tokens: Tokens, idx: number)
 	if typeof(n) == "number" then
 		local primitive
 		if n % 1 == 0 then
-			primitive = "f64"
-		else
 			primitive = "i32"
+		else
+			primitive = "f64"
 		end
 
 		local node: ASTParseNumberLiteral = new_node("number_literal", n, idx, 1, primitive)

@@ -671,7 +671,14 @@ local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | AS
 		consumed_total += (consumed + 1)
 		idx += consumed
 
-		return NodeConstructors.binding(tokens, idx, { lhs, rhs }, consumed_total)
+		local binding, _ = NodeConstructors.binding(tokens, idx, { lhs, rhs }, consumed_total)
+
+		-- Hoist attributes, which will end up on the lhs since it will directly follow the attributes
+		for i,v in lhs.Attributes do
+			binding.Attributes[i] = v
+		end
+
+		return binding, consumed_total
 	else
 		rhs, consumed = next_node_from_position(tokens, idx)
 		consumed_total += consumed
@@ -783,7 +790,7 @@ local function new_node<T, R>(type: string, value: T, index: number, tokens_cons
 		Attributes = { } :: NodeAttributes,
 	}
 
-	return node
+	return (node :: any) :: R
 end
 
 local RootConstructs = {
@@ -817,6 +824,16 @@ local function VisitorChildrenAreTrivial<Children>(children: Children)
 	end
 
 	return true
+end
+
+local function ASTChildrenHasOptionals<Children>(children: Children)
+	for _, node in children do
+		if node.Attributes.optional then
+			return true
+		end
+	end
+
+	return false
 end
 
 local function VisitorVisit<Visitor, Node, R>(self: Visitor, node: Node): R
@@ -1697,30 +1714,74 @@ local SizeCalcVisitor: SizeCalcVisitor = {
 			map[lhs] = ASTNodeAccept(v.Value[2], self)
 		end
 
-		if VisitorChildrenAreTrivial(map) then
-			return sum(map :: { [string | number]: number })
-		end
+		local has_optionals = ASTChildrenHasOptionals(ast_children)
 
-		local alpha = struct_len
-		local optimized_map: { [string | number]: SizeCalcFn<unknown> } = {}
-		for i, v in map do
-			if typeof(v) == "number" then
-				alpha += v
-			else
-				optimized_map[i] = v
-			end
-		end
-
-		local f = function(t: { [string | number]: unknown })
-			local s = alpha
-			for i, v in optimized_map do
-				s += v(t[i])
+		if not has_optionals then
+			if VisitorChildrenAreTrivial(map) then
+				return sum(map :: { [string | number]: number })
 			end
 
-			return s
-		end
+			local alpha = struct_len
+			local optimized_map: { [string | number]: SizeCalcFn<unknown> } = {}
+			for i, v in map do
+				if typeof(v) == "number" then
+					alpha += v
+				else
+					optimized_map[i] = v
+				end
+			end
 
-		return f
+			return function(t: { [string | number]: unknown })
+				local s = alpha
+				for i, v in optimized_map do
+					s += v(t[i])
+				end
+
+				return s
+			end
+		else
+			local optionals: { [string | number]: SizeCalcFn<unknown> | number } = { }
+			for i,v in ast_children do
+				if v.Attributes.optional then
+					local lhs = v.Value[1].Value :: string | number
+					optionals[lhs] = map[lhs]
+				end
+			end
+
+			local alpha = 0
+			local optimized_map: { [string | number]: SizeCalcFn<unknown> | number } = { }
+			for i,v in map do
+				if typeof(v) == "number" then
+					if optionals[i] then
+						optimized_map[i] = v
+					else
+						alpha += v
+					end
+				else
+					optimized_map[i] = v
+				end
+			end
+
+			local bytes_per_key = bytes_to_store_value(#ast_children)
+
+			return function(t: { [string | number]: unknown })
+				local keys = count_table_keys(t)
+				local s = alpha + keys
+
+				for i,v in t do
+					s += bytes_per_key
+
+					local calc = optimized_map[i]
+					if typeof(calc) == "number" then
+						s += calc
+					elseif typeof(calc) == "function" then
+						s += calc(v)
+					end
+				end
+
+				return s
+			end
+		end
 	end,
 	vector3 = function(self, node)
 		return sum(VisitorCollectChildren(self, node))
@@ -1899,23 +1960,46 @@ local SerializeVisitor: SerializeVisitor = {
 	struct = function(self, node)
 		local ast_children = node.Value
 
-		local map = {}
+		local has_optionals = ASTChildrenHasOptionals(ast_children)
+
+		local lhs_to_rhs_writer = {}
 		for i, v in ast_children do
 			local lhs_literal = v.Value[1].Value :: number | string
 			local rhs_writer = ASTNodeAccept(v.Value[2], self)
-			map[lhs_literal] = rhs_writer
+			lhs_to_rhs_writer[lhs_literal] = rhs_writer
 		end
 
-		local f = function(t: {}, b: buffer, idx: number)
-			local s = 0
-			for i, writer in map do
-				s += writer(t[i], b, idx + s)
+		if not has_optionals then
+			return function(t: {}, b: buffer, idx: number)
+				local s = 0
+				for i, writer in lhs_to_rhs_writer do
+					s += writer(t[i], b, idx + s)
+				end
+
+				return s
+			end
+		else
+			local maxn = #ast_children
+			local lhs_writer = raw_byte_writers[bytes_to_store_value(maxn)]
+
+			local lhs_index_map: { [number | string]: number } = table.create(maxn)
+			for i = 1, maxn, 1 do
+				local lhs_literal = ast_children[i].Value[1].Value
+				lhs_index_map[lhs_literal] = i
 			end
 
-			return s
-		end
+			return function(t: { }, b: buffer, idx: number)
+				local keys = count_table_keys(t)
+				local s = write_size_specifier(keys, b, idx)
 
-		return f
+				for i, v in t do
+					s += lhs_writer(lhs_index_map[i], b, idx + s)
+					s += lhs_to_rhs_writer[i](v, b, idx + s)
+				end
+
+				return s
+			end
+		end
 	end,
 	vector3 = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
@@ -2132,19 +2216,48 @@ local DeserializeVisitor: DeserializeVisitor = {
 			map[lhs_literal] = rhs_writer
 		end
 
-		local f = function(b: buffer, idx: number)
-			local s = 0
-			local ret: { [number | string]: any } = table.create(struct_len)
-			for l, reader in map do
-				local r, read = reader(b, idx + s)
-				s += read
-				ret[l] = r
+		local has_optionals = ASTChildrenHasOptionals(ast_children)
+
+		if not has_optionals then
+			return function(b: buffer, idx: number)
+				local s = 0
+				local ret: { [number | string]: any } = table.create(struct_len)
+				for l, reader in map do
+					local r, read = reader(b, idx + s)
+					s += read
+					ret[l] = r
+				end
+
+				return ret, s
+			end
+		else
+			local maxn = #ast_children
+			local lhs_reader = raw_byte_readers[bytes_to_store_value(maxn)]
+
+			local lhs_index_map: { [number]: number | string } = table.create(maxn)
+			for i = 1, maxn, 1 do
+				local lhs_literal = ast_children[i].Value[1].Value
+				lhs_index_map[i] = lhs_literal
 			end
 
-			return ret, s
-		end
+			return function(b: buffer, idx: number)
+				local keys, s = read_size_specifier(b, idx)
+				local ret: { [number | string]: unknown } = table.create(s)
 
-		return f
+				for i = 1, keys, 1 do
+					local l_idx, read1 = lhs_reader(b, idx + s)
+					local l = lhs_index_map[l_idx]
+					s += read1
+
+					local r, read2 = map[l](b, idx + s)
+					s += read2
+
+					ret[l] = r
+				end
+
+				return ret, s
+			end
+		end
 	end,
 	vector3 = function(self, node)
 		local fns = VisitorCollectChildren(self, node)

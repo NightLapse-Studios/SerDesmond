@@ -80,6 +80,37 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			cframe(i8, u32, i8)
 		]]
 
+		local attribute_test_string = [[
+			struct(
+				"Thing1": i8,
+				@optional
+				"Thing2": i8,
+				"Thing3": i8
+			)
+		]]
+
+		local _, struct_with_optionals = pcall(function()
+			return SerDesmond.PrettyCompile(attribute_test_string, true)
+		end)
+
+		T:Test("Optional attribute", function()
+			T:ForContext("Compile",
+				T.Equal, typeof(struct_with_optionals.Serialize), "function",
+				T.Equal, typeof(struct_with_optionals.Deserialize), "function"
+			)
+			local t = struct_with_optionals.Deserialize(struct_with_optionals.Serialize({
+					Thing1 = 99,
+					Thing3 = 2
+			}))
+
+			T:ForContext("SerDes",
+				T.Equal, typeof(t), "table",
+				T.Equal, t.Thing1, 99,
+				T.Equal, t.Thing2, nil,
+				T.Equal, t.Thing3, 2
+			)
+		end)
+
 		local _, struct = pcall(function()
 			return SerDesmond.PrettyCompile(struct_str)
 		end)

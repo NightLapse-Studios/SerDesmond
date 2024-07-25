@@ -1706,7 +1706,6 @@ local SizeCalcVisitor: SizeCalcVisitor = {
 		for i, v in map do
 			if typeof(v) == "number" then
 				alpha += v
-				map[i] = nil
 			else
 				optimized_map[i] = v
 			end

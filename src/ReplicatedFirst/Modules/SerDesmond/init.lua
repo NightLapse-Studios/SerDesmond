@@ -873,7 +873,7 @@ local function root(tokens: Tokens, idx: number)
 	local node: ASTParseRoot = new_node("root", children, idx, consumed)
 	return node, consumed
 end
-local function error(tokens: Tokens, idx: number, err: string, size: number)
+local function _error(tokens: Tokens, idx: number, err: string, size: number)
 	local node: ASTParseError = new_node("error", tokens[idx], idx, size, err)
 	return node, size
 end
@@ -919,7 +919,7 @@ local function number_literal(tokens: Tokens, idx: number)
 		local node: ASTParseNumberLiteral = new_node("number_literal", n, idx, 1, primitive)
 		return node, 1
 	else
-		return error(tokens, idx, "Internal error: passed non-number to number_literal", 1)
+		return _error(tokens, idx, "Internal error: passed non-number to number_literal", 1)
 	end
 end
 local function _string(tokens: Tokens, idx: number)
@@ -933,7 +933,7 @@ local function enum(tokens: Tokens, idx: number)
 	for i, v in children do
 		if v.Type ~= "string_literal" then
 			local err, _ =
-				error(tokens, v.TokenIndex, `Unexpected {v.Value}, enum can only contain string literals`, v.TokenSize)
+				_error(tokens, v.TokenIndex, `Unexpected {v.Value}, enum can only contain string literals`, v.TokenSize)
 			children[i] = err
 		end
 	end
@@ -951,7 +951,7 @@ local function array(tokens: Tokens, idx: number)
 	for i, v in children do
 		if not ASTNodeIsValidHost(v) then
 			if v.Type ~= "error" then
-				local err, _ = error(
+				local err, _ = _error(
 					tokens,
 					v.TokenIndex,
 					`Unexpected {v.Value}, array can only contain read/write constructs`,
@@ -970,12 +970,12 @@ local function periodic_array(tokens: Tokens, idx: number)
 	local consumed_total = consumed + 1
 
 	if #children == 0 then
-		return error(tokens, idx, "periodic_array must contain at least one serializable object", consumed_total)
+		return _error(tokens, idx, "periodic_array must contain at least one serializable object", consumed_total)
 	else
 		for i, v in children do
 			if not ASTNodeIsValidHost(v) then
 				if v.Type ~= "error" then
-					local err, _ = error(
+					local err, _ = _error(
 						tokens,
 						v.TokenIndex,
 						`Unexpected {v.Value}, array can only contain read/write constructs`,
@@ -996,16 +996,16 @@ local function map(tokens: Tokens, idx: number)
 
 	if #children > 1 then
 		for i, v in children do
-			local err, _ = error(tokens, v.TokenIndex, "map can only have one binding", v.TokenSize)
+			local err, _ = _error(tokens, v.TokenIndex, "map can only have one binding", v.TokenSize)
 			children[i] = err
 		end
 	elseif #children == 0 then
-		return error(tokens, idx, "map must contain a type binding", consumed_total)
+		return _error(tokens, idx, "map must contain a type binding", consumed_total)
 	end
 
 	local child_type = children[1].Type
 	if child_type ~= "binding" and child_type ~= "error" then
-		return error(tokens, idx, "map must contain a type binding", consumed_total)
+		return _error(tokens, idx, "map must contain a type binding", consumed_total)
 	end
 
 	local node: ASTParseMap = new_node("map", children, idx, consumed_total)
@@ -1020,14 +1020,14 @@ local function struct(tokens: Tokens, idx: number)
 			local child_type = v.Type
 			if child_type ~= "binding" then
 				if child_type ~= "error" then
-					local err, _ = error(tokens, v.TokenIndex, `struct expected type binding, got {v.Type}`, v.TokenSize)
+					local err, _ = _error(tokens, v.TokenIndex, `struct expected type binding, got {v.Type}`, v.TokenSize)
 					children[i] = err
 				end
 			else
 				local lhs = v.Value[1]
 				local lhs_type = lhs.Type
 				if lhs_type ~= "error" and lhs_type ~= "number_literal" and lhs_type ~= "string_literal" then
-					children[i] = error(
+					children[i] = _error(
 						tokens,
 						lhs.TokenIndex,
 						"left hand side of struct bindings must be a number or string literal",
@@ -1037,7 +1037,7 @@ local function struct(tokens: Tokens, idx: number)
 			end
 		end
 	else
-		return error(tokens, idx, "struct must contain at least one binding", consumed_total)
+		return _error(tokens, idx, "struct must contain at least one binding", consumed_total)
 	end
 
 	local node: ASTParseStruct = new_node("struct", children, idx, consumed_total)
@@ -1056,7 +1056,7 @@ local function vector3(tokens: Tokens, idx: number)
 	end
 
 	if not is_ok then
-		return error(tokens, idx, "vector3 expects 3 type literals", consumed_total)
+		return _error(tokens, idx, "vector3 expects 3 type literals", consumed_total)
 	end
 
 	local node: ASTParseVector3 = new_node("vector3", children, idx, consumed_total)
@@ -1075,7 +1075,7 @@ local function cframe(tokens: Tokens, idx: number)
 	end
 
 	if not is_ok then
-		return error(tokens, idx, "cframe expects 3 type literals (for encoding its position vector)", consumed_total)
+		return _error(tokens, idx, "cframe expects 3 type literals (for encoding its position vector)", consumed_total)
 	end
 
 	local node: ASTParseCFrame = new_node("cframe", children, idx, consumed_total)
@@ -1086,11 +1086,11 @@ local function size_specifier(tokens: Tokens, idx: number)
 	local size = tonumber(tokens[idx + 2])
 
 	if not is_separator(seperator) then
-		return error(tokens, idx, "Missing seperator for size specifier", 2)
+		return _error(tokens, idx, "Missing seperator for size specifier", 2)
 	end
 
 	if not size then
-		return error(tokens, idx, "Expected number for size specifier", 3)
+		return _error(tokens, idx, "Expected number for size specifier", 3)
 	end
 
 	local node: ASTParseSizeSpecifier = new_node("size_specifier", size, idx, 3)
@@ -1130,7 +1130,7 @@ end
 
 NodeConstructors = {
 	root = root,
-	error = error,
+	error = _error,
 	error_with_unparsed_children = error_with_unparsed_children,
 	error_with_children = error_with_children,
 	comment = comment,

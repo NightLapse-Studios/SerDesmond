@@ -1766,7 +1766,7 @@ local SizeCalcVisitor: SizeCalcVisitor = {
 
 			return function(t: { [string | number]: unknown })
 				local keys = count_table_keys(t)
-				local s = alpha + keys
+				local s = alpha + keys + bytes_to_store_dynamic_size(keys)
 
 				for i,v in t do
 					s += bytes_per_key

@@ -1,6 +1,6 @@
 local FUZZ_RANDOM_STRINGS = false
 local FUZZ_RANDOM_TOKENS = false
-local FUZZ_SERDES_FUNCTIONS = false
+local FUZZ_SERDES_FUNCTIONS = true
 
 local SerDesmond = require(script.Parent.SerDesmond)
 
@@ -187,17 +187,44 @@ function mod.__tests(G, T)
 			struct = function(depth)
 				local children_ct = math.random(3, 5)
 				local children_ex = {}
+				local ignored_children = {}
 
 				local out = "struct("
 				for i = 1, children_ct, 1 do
 					local binding, binding_ex = Generators.binding(depth + 1, true)
-					if table.find(children_ex, binding_ex) then
+
+					local string_literal_collides = false
+					for i,v in binding_ex do
+						if children_ex[i] or ignored_children[i] then
+							string_literal_collides = true
+							break
+						end
+					end
+
+					if string_literal_collides then
 						continue
 					end
 
-					for i, v in binding_ex do
-						children_ex[i] = v
+
+					local r = math.random()
+					if r > 0.2 then
+						out ..= "@optional "
+
+						if r > 0.5 then
+							for i, v in binding_ex do
+								children_ex[i] = v
+							end
+						else
+							for i,v in binding_ex do
+								ignored_children[i] = v
+							end
+						end
+					else
+						for i, v in binding_ex do
+							children_ex[i] = v
+						end
 					end
+
 					out ..= binding
 					if i ~= children_ct then
 						out ..= ", "

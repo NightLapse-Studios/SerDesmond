@@ -2,6 +2,7 @@
 --!native
 
 local Tokenizer = require(script.Tokenizer)
+local Players = game:GetService("Players")
 
 local SCRIPT_NAME = script.Name
 
@@ -169,6 +170,14 @@ type ASTParseCFrame = {
 	TokenSize: number,
 	Attributes: NodeAttributes,
 }
+type ASTParsePlayer = {
+	Type: "player",
+	Value: { ASTParsePlayer },
+	Extra: false,
+	TokenIndex: number,
+	TokenSize: number,
+	Attributes: NodeAttributes,
+}
 
 type ASTParseChildren = { ASTParseNodes }
 type ASTParseTerminal =
@@ -177,6 +186,7 @@ type ASTParseTerminal =
 	| ASTParseNumberLiteral
 	| ASTParseString
 	| ASTParseError
+	| ASTParsePlayer
 type ASTParseHostNodes =
 	ASTParseTerminal
 	& {
@@ -188,6 +198,7 @@ type ASTParseHostNodes =
 		| ASTParseStruct
 		| ASTParseErrorWChildren
 		| ASTParseCFrame
+		| ASTParsePlayer
 	}
 type ASTParseTerminals = { ASTParseTerminal | ASTParseError | ASTParseErrorWChildren }
 type ASTParseNodes =
@@ -207,6 +218,7 @@ type ASTParseNodes =
 	| ASTParseString
 	| ASTParseStruct
 	| ASTParseCFrame
+	| ASTParsePlayer
 
 type ASTValidRoot = {
 	Type: "root",
@@ -328,6 +340,14 @@ type ASTValidCFrame = {
 	TokenSize: number,
 	Attributes: NodeAttributes,
 }
+type ASTValidPlayer = {
+	Type: "player",
+	Value: false,
+	Extra: false,
+	TokenIndex: number,
+	TokenSize: number,
+	Attributes: NodeAttributes,
+}
 
 type ASTValidChildren = { ASTValidNodes }
 type ASTValidTerminal = ASTValidTypeLiteral | ASTValidStringLiteral | ASTValidNumberLiteral | ASTValidString
@@ -341,6 +361,7 @@ type ASTValidHostNodes =
 		| ASTValidMap
 		| ASTValidStruct
 		| ASTValidCFrame
+		| ASTValidPlayer
 	}
 type ASTValidTerminals = { ASTValidTerminal }
 type ASTValidNodes =
@@ -358,6 +379,7 @@ type ASTValidNodes =
 	| ASTValidString
 	| ASTValidStruct
 	| ASTValidCFrame
+	| ASTValidPlayer
 
 local TAB_BYTE = string.byte("\t")
 
@@ -587,6 +609,7 @@ local Keywords: {
 	struct: NodeConstructor<ASTParseStruct | ASTParseError>,
 	vector3: NodeConstructor<ASTParseVector3 | ASTParseError>,
 	cframe: NodeConstructor<ASTParseCFrame | ASTParseError>,
+	player: NodeConstructor<ASTParsePlayer>,
 }
 
 local Attributes = {
@@ -804,6 +827,8 @@ local RootConstructs = {
 	enum = true,
 	map = true,
 	struct = true,
+	cframe = true,
+	player = true
 }
 
 local function ASTNodeIsValidHost<Node>(node: Node)
@@ -1120,6 +1145,10 @@ local function binding(tokens: Tokens, idx: number, children: ASTValidTerminals,
 	local node: ASTParseBinding = new_node("binding", children, idx, token_size)
 	return node, token_size
 end
+local function player(tokens: Tokens, idx: number)
+	local node: ASTParsePlayer = new_node("player", false, idx, 1)
+	return node, 1
+end
 local function i8(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
@@ -1176,6 +1205,7 @@ Keywords = {
 	struct = struct,
 	vector3 = vector3,
 	cframe = cframe,
+	player = player,
 }
 
 -- Visitor that can take in non-error-checked ASTs
@@ -1196,7 +1226,8 @@ type ParseVisitor<
 	BindingRet,
 	MapRet,
 	StructRet,
-	CFrameRet
+	CFrameRet,
+	PlayerRet
 > = {
 	root: (ParentVisitor, ASTParseRoot) -> RootRet,
 	comment: (ParentVisitor, ASTParseComment) -> CommentRet,
@@ -1214,6 +1245,7 @@ type ParseVisitor<
 	string: (ParentVisitor, ASTParseString) -> StringRet,
 	struct: (ParentVisitor, ASTParseStruct) -> StructRet,
 	cframe: (ParentVisitor, ASTParseCFrame) -> CFrameRet,
+	player: (ParentVisitor, ASTParsePlayer) -> PlayerRet,
 }
 
 type ValidVisitor<
@@ -1231,7 +1263,8 @@ type ValidVisitor<
 	BindingRet,
 	MapRet,
 	StructRet,
-	CFrameRet
+	CFrameRet,
+	PlayerRet
 > = {
 	root: (ParentVisitor, ASTValidRoot) -> RootRet,
 	type_literal: (ParentVisitor, ASTValidTypeLiteral) -> TypeLiteralRet,
@@ -1247,12 +1280,13 @@ type ValidVisitor<
 	string: (ParentVisitor, ASTValidString) -> StringRet,
 	struct: (ParentVisitor, ASTValidStruct) -> StructRet,
 	cframe: (ParentVisitor, ASTValidCFrame) -> CFrameRet,
+	player: (ParentVisitor, ASTValidPlayer) -> PlayerRet,
 }
 
 -- stylua: ignore
 type ErrorReportVisitor = ParseVisitor<
 	ErrorReportVisitor,
-	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
+	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 >
 
 local function PrintErrors(node: ASTParseNodes, src: string, locations: { TokenLocation })
@@ -1354,6 +1388,8 @@ local function PrintErrors(node: ASTParseNodes, src: string, locations: { TokenL
 		end,
 		cframe = function(self, node)
 			VisitorTraverseChildren(self, node)
+		end,
+		player = function(self, node)
 		end
 	}
 
@@ -1363,7 +1399,7 @@ end
 -- stylua: ignore
 type PrintASTVisitor = ParseVisitor<
 	PrintASTVisitor,
-	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
+	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 >
 
 local function PrintAST(ast: ASTParseRoot | ASTValidRoot)
@@ -1458,6 +1494,9 @@ local function PrintAST(ast: ASTParseRoot | ASTValidRoot)
 			indent += 1
 			VisitorTraverseChildren(self, node)
 			indent -= 1
+		end,
+		player = function(self, node)
+			print_desc(self, "player")
 		end
 	}
 
@@ -1481,7 +1520,8 @@ type ValidateVisitor = ParseVisitor<
 	number?,
 	number?,
 	number?,
-	number?
+	number?,
+	nil
 >
 
 local ValidateVisitor: ValidateVisitor = {
@@ -1537,6 +1577,9 @@ local ValidateVisitor: ValidateVisitor = {
 	end,
 	cframe = function(self, node)
 		return sum(VisitorCollectChildren(self, node))
+	end,
+	player = function(self, node)
+		return nil
 	end
 }
 
@@ -1560,6 +1603,7 @@ type SizeCalcVisitor = ValidVisitor<
 	(number | SizeCalcFn<unknown>, number | SizeCalcFn<unknown>) -> number,
 	SizeCalcFn<{ [string]: number }> | SizeCalcFn<{ unknown }>,
 	SizeCalcFn<{ [string | number]: unknown }> | number,
+	number,
 	number
 >
 
@@ -1788,6 +1832,9 @@ local SizeCalcVisitor: SizeCalcVisitor = {
 	end,
 	cframe = function(self, node)
 		return sum(VisitorCollectChildren(self, node)) + 6
+	end,
+	player = function(self, node)
+		return 8
 	end
 }
 
@@ -1810,7 +1857,8 @@ type SerializeVisitor = ValidVisitor<
 	(unknown, unknown, buffer, number) -> number,
 	WriterFn<{ [unknown]: unknown }>,
 	WriterFn<{ [unknown]: unknown }>,
-	WriterFn<CFrame>
+	WriterFn<CFrame>,
+	WriterFn<Player>
 >
 
 local SerializeVisitor: SerializeVisitor = {
@@ -2040,6 +2088,18 @@ local SerializeVisitor: SerializeVisitor = {
 		end
 
 		return f
+	end,
+	player = function(self, node)
+		return function(v: Player, b: buffer, idx: number)
+			local user_id = v.UserId
+			local top = user_id // 2^32
+			local bottom = user_id % 2^32
+
+			buffer.writeu32(b, 0, top)
+			buffer.writeu32(b, 4, bottom)
+
+			return 8
+		end
 	end
 }
 
@@ -2059,7 +2119,8 @@ type DeserializeVisitor = ValidVisitor<
 	(buffer, number) -> (unknown, unknown, number),
 	ReaderFn<{ [unknown]: unknown }>,
 	ReaderFn<{ [unknown]: unknown }>,
-	ReaderFn<CFrame>
+	ReaderFn<CFrame>,
+	ReaderFn<Player>
 >
 
 local DeserializeVisitor: DeserializeVisitor = {
@@ -2311,6 +2372,16 @@ local DeserializeVisitor: DeserializeVisitor = {
 		end
 
 		return f
+	end,
+	player = function(self, node)
+		return function(b: buffer, idx: number)
+			local top = buffer.readu32(b, idx)
+			local bottom = buffer.readu32(b, idx + 4)
+			local id = top * 2^32 + bottom
+			local plr = Players:GetPlayerByUserId(id)
+
+			return plr, 8
+		end
 	end
 }
 

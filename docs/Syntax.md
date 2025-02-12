@@ -211,6 +211,8 @@ TODO: Optional lint for non-applicable attributes
 
 A binding in a struct can be marked as optional to signify that they may or may not exist in the supplied object. **Currently only `struct` supports this attribute.**
 
+Note that using any optional fields in a struct adds overhead such as needing to count inputs to its SerDes which may be considerable in extreme scenarios.
+
 ```lua
 SerDesmond.Compile([[
 	struct(

@@ -2,7 +2,7 @@ local NORMAL_TESTS = true
 
 local mod = {}
 
-local SerDesmond = require(script.Parent.SerDesmond)
+local SerDesmond = require(script.Parent)
 
 local function dump_bits(buf: buffer)
 	local t = ""
@@ -10,7 +10,7 @@ local function dump_bits(buf: buffer)
 	local len = buffer.len(buf)
 	for i = 0, len - 1, 1 do
 		local byte = buffer.readu8(buf, i)
-		for j = 7, 0, -1 do
+		for j = 0, 7, 1 do
 			local b = bit32.extract(byte, j, 1)
 			t ..= tostring(b)
 		end
@@ -140,7 +140,6 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			local min_size, max_size = 1, 2 ^ 30 - 1
 			local buf1 = buffer.create(4)
 			local buf2 = buffer.create(4)
-			local buf3 = buffer.create(4)
 			SerDesmond.write_size_specifier(min_size, buf1, 0)
 			SerDesmond.write_size_specifier(63, buf1, 1)
 			SerDesmond.write_size_specifier(64, buf1, 2)
@@ -150,10 +149,10 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			T:ForContext(
 				"writing",
 				--						  [s=1 v=1][s=1 v=63][   s=2 v=64    ]
-				--						   ssvvvvvv ssvvvvvv ssvvvvvv vvvvvvvv
-				T.Equal, dump_bits(buf1), "00000001 00111111 01000000 01000000",
+				--						   SSvvvvvv SSvvvvvv SSvvvvvv vvvvvvvv
+				T.Equal, dump_bits(buf1), "00100000 00111111 10000000 10000000",
 				--						  [           s=3 v=2^30-1           ]
-				--						   ssvvvvvv vvvvvvvv vvvvvvvv vvvvvvvv
+				--						   SSvvvvvv vvvvvvvv vvvvvvvv vvvvvvvv
 				T.Equal, dump_bits(buf2), "11111111 11111111 11111111 11111111"
 			)
 
@@ -163,22 +162,16 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			-- overwrite 2nd byte
 			SerDesmond.write_size_specifier(1, full_buf, 1)
 
-			T:ForContext("written size", T.Equal, dump_bits(full_buf), "11111111 00000001 11111111 11111111")
+			T:ForContext("written size",
+				T.Equal, dump_bits(full_buf), "11111111 00100000 11111111 11111111"
+			)
 
 			T:ForContext(
 				"reading",
-				T.Equal,
-				SerDesmond.read_size_specifier(buf1, 0),
-				1,
-				T.Equal,
-				SerDesmond.read_size_specifier(buf1, 1),
-				63,
-				T.Equal,
-				SerDesmond.read_size_specifier(buf1, 2),
-				64,
-				T.Equal,
-				SerDesmond.read_size_specifier(buf2, 0),
-				2 ^ 30 - 1
+				T.Equal, SerDesmond.read_size_specifier(buf1, 0), 1,
+				T.Equal, SerDesmond.read_size_specifier(buf1, 1), 63,
+				T.Equal, SerDesmond.read_size_specifier(buf1, 2), 64,
+				T.Equal, SerDesmond.read_size_specifier(buf2, 0), 2 ^ 30 - 1
 			)
 		end)
 		T:Test("Compile junk", function()

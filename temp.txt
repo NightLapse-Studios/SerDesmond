@@ -1,0 +1,39 @@
+  ManyFieldsCompTest: 0.014252717187503094 per 200 compilations (1.824347800000396 total time)
+  	roughly 14032.412021432778 compilations per second
+  	roughly 2178.860850984191 kB per second
+  ManyFieldsCompTest: 0.014075841406196332 per 200 compilations (1.8017076999931305 total time)
+  	roughly 14208.742072922043 compilations per second
+  	roughly 2206.2402242134813 kB per second
+  ManyFieldsCompTest: 0.014760407031261025 per 200 compilations (1.8893321000014112 total time)
+  	roughly 13549.761844400398 compilations per second
+  	roughly 2103.91809888639 kB per second
+
+  Map: 0.0045539249999642095 per 200 compilations (0.5829023999954188 total time)
+  	roughly 43918.158511958776 compilations per second
+  	roughly 1329.5536268268768 kB per second
+  Map: 0.004578158593741222 per 200 compilations (0.5860042999988764 total time)
+  	roughly 43685.686265525845 compilations per second
+  	roughly 1322.515892804005 kB per second
+  Map: 0.004625400781232969 per 200 compilations (0.59205129999782 total time)
+  	roughly 43239.496307320434 compilations per second
+  	roughly 1309.008188991146 kB per second
+
+  Array: 0.009325775781242385 per 200 compilations (1.1936992999990252 total time)
+  	roughly 21445.937012797865 compilations per second
+  	roughly 1612.633935532652 kB per second
+  Array: 0.009662874999982307 per 200 compilations (1.2368479999977353 total time)
+  	roughly 20697.773695754753 compilations per second
+  	roughly 1556.3755611065585 kB per second
+  Array: 0.009741806250019636 per 200 compilations (1.2469512000025134 total time)
+  	roughly 20530.07367084486 compilations per second
+  	roughly 1543.765305327201 kB per second
+
+  Struct: 0.004546921874965193 per 200 compilations (0.5820059999955447 total time)
+  	roughly 43985.800834005095 compilations per second
+  	roughly 1675.240461451366 kB per second
+  Struct: 0.004569213281239826 per 200 compilations (0.5848592999986977 total time)
+  	roughly 43771.211298267815 compilations per second
+  	roughly 1667.067617805122 kB per second
+  Struct: 0.004532641406271409 per 200 compilations (0.5801781000027404 total time)
+  	roughly 44124.38180599902 compilations per second
+  	roughly 1680.518447689416 kB per second

@@ -169,7 +169,7 @@ function Tester:Fuzz(name, count, generator, test_runner)
 		end
 
 		if os.clock() - cycle_start_time > 0.5 then
-			print(tostring(i) .. " out of " .. tostring(count) .. " iterations")
+			print(name .. ": " .. tostring(i) .. " out of " .. tostring(count) .. " iterations")
 			task.wait()
 			cycle_start_time = os.clock()
 		end

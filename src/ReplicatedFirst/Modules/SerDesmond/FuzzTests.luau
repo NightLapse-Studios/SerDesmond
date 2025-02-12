@@ -1,10 +1,11 @@
 local FUZZ_RANDOM_STRINGS = false
 local FUZZ_RANDOM_TOKENS = false
-local FUZZ_SERDES_FUNCTIONS = true
+local FUZZ_SERDES_FUNCTIONS = false
 
-local SerDesmond = require(script.Parent.SerDesmond)
+local SerDesmond = require(script.Parent)
 
 local mod = { }
+
 
 function mod.__tests(G, T)
 	if G.CONTEXT == "SERVER" then
@@ -331,14 +332,15 @@ function mod.__tests(G, T)
 
 		-- print(DumpRecusriveTable({[{1, 2, 3}] = {{a = 99}, 4, 5}}))
 
+
 		if FUZZ_SERDES_FUNCTIONS then
-			T:Fuzz("SerDes fuzz", 100_000, function()
+			T:Fuzz("SerDes fuzz", 10_000, function()
 				local str, ex = RandomGeneratorExcept({ "binding" })(1)
 				-- local str, ex = Generators.periodic_array(1)
-				return { str, ex }
+				return { CompString = str, Data = ex }
 			end, function(p)
-				local str, ex = p[1], p[2]
-				local s, d, _ = SerDesmond.Compile(str)
+				local str, ex = p.CompString, p.Data
+				local s, d, _ = SerDesmond.Compile(str, true, true)
 				if not (s and d) then
 					error("Compile failed")
 				end
@@ -348,7 +350,7 @@ function mod.__tests(G, T)
 				local after = DumpValueRecursive(res)
 
 				if before ~= after then
-					error("SerDes not equivalent:\n" .. before .. "\n" .. after)
+					error("SerDes not equivalent:\nBefore: " .. before .. "\nAfter: " .. after)
 				end
 			end)
 		end

@@ -2,9 +2,11 @@
 --!native
 
 local Tokenizer = require(script.Tokenizer)
+local CallStack = require(script.DebugCallStack)
 local Players = game:GetService("Players")
 
 local SCRIPT_NAME = script.Name
+local RUNTIME_TRACEBACKS = false
 
 local mod = {}
 
@@ -542,7 +544,10 @@ local function write_size_specifier(v: number, b: buffer, idx: number)
 	-- subtract 1 so we can store 1-4 in 2 bits
 	local encoded_size = bytes - 1
 	-- pack the length into the number, using its 2 most significant bits
-	v = bit32.replace(v, encoded_size, bytes * 8 - 2, 2)
+	v = bit32.lshift(v, 2)
+	v = bit32.replace(v, encoded_size, 0, 2)
+
+	-- print("wss: ", v, encoded_size)
 
 	return raw_byte_writers[bytes](v, b, idx)
 end
@@ -550,11 +555,14 @@ end
 local function read_size_specifier(b: buffer, idx: number)
 	-- To allowe a size specifier to terminate a buffer, we can't assume its size
 	local first = buffer.readu8(b, idx)
-	local bytes = bit32.extract(first, 6, 2) + 1
+	local bytes = bit32.extract(first, 0, 2) + 1
 	local dat = raw_byte_readers[bytes](b, idx)
-	local bits = bytes * 8
+	dat = bit32.rshift(dat, 2)
 
-	return bit32.extract(dat, 0, bits - 2), bytes
+
+	-- print("rss: ", result, bytes)
+
+	return dat, bytes
 end
 
 local function count_table_keys(t: {})
@@ -678,6 +686,9 @@ local function next_node_from_position<R>(
 	end
 
 	local node, node_consumed = node_ctor(tokens, idx)
+	if node_consumed == nil or leading_tokens_consumed == nil then
+		node_ctor(tokens, idx)
+	end
 	return node, node_consumed + leading_tokens_consumed
 end
 
@@ -699,6 +710,7 @@ local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | AS
 		-- Hoist attributes, which will end up on the lhs since it will directly follow the attributes
 		for i,v in lhs.Attributes do
 			binding.Attributes[i] = v
+			lhs.Attributes[i] = nil
 		end
 
 		return binding, consumed_total
@@ -1283,9 +1295,11 @@ type ValidVisitor<
 	player: (ParentVisitor, ASTValidPlayer) -> PlayerRet,
 }
 
+type VisitorInstance<Visitor> = Visitor & { CallStack: CallStack.SerDesmondStack | false }
+
 -- stylua: ignore
 type ErrorReportVisitor = ParseVisitor<
-	ErrorReportVisitor,
+	VisitorInstance<ErrorReportVisitor>,
 	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 >
 
@@ -1398,105 +1412,116 @@ end
 
 -- stylua: ignore
 type PrintASTVisitor = ParseVisitor<
-	PrintASTVisitor,
+	VisitorInstance<PrintASTVisitor>,
 	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 >
 
 local function PrintAST(ast: ASTParseRoot | ASTValidRoot)
-	local indent = 0
-	local function print_desc(self, desc: string)
-		local out = ""
-		for i = 1, indent, 1 do
-			out ..= "\t"
+	local indent_lvl = 0
+
+	local function indent(lvl: number, str: string)
+		for i = 1, indent_lvl, 1 do
+			str ..= "\t"
 		end
 
-		print(out .. desc)
+		return str
+	end
+
+	local function print_desc(self, node: ASTParseNodes)
+		local out = indent(indent_lvl, "")
+		out ..= node.Type
+
+		for i,v in node.Attributes do
+			out ..= indent(indent_lvl + 1, "\n") .. " +" .. i
+		end
+
+		print(out)
 	end
 
 	local visitor: PrintASTVisitor = {
 		root = function(self, node)
-			print_desc(self, "root")
-			indent += 1
+			print_desc(self, node)
+			indent_lvl += 1
 			VisitorTraverseChildren(self, node)
-			indent -= 1
+			indent_lvl -= 1
 		end,
 		comment = function(self, node)
-			print_desc(self, "comment: " .. node.Value)
+			print_desc(self, node)
 		end,
 		error = function(self, node)
-			print_desc(self, "error: " .. node.Extra)
+			print_desc(self, node)
 			if typeof(node.Value) == "table" then
-				indent += 1
+				indent_lvl += 1
 				VisitorTraverseChildren(self, node)
-				indent -= 1
+				indent_lvl -= 1
 			end
 		end,
 		type_literal = function(self, node)
-			print_desc(self, "type: " .. node.Value)
+			print_desc(self, node)
 		end,
 		string_literal = function(self, node)
-			print_desc(self, "string literal: " .. node.Value)
+			print_desc(self, node)
 		end,
 		number_literal = function(self, node)
-			print_desc(self, "number literal: " .. node.Value .. " (" .. node.Extra .. ")")
+			print_desc(self, node)
 		end,
 		string = function(self, node)
-			print_desc(self, "string")
+			print_desc(self, node)
 		end,
 		enum = function(self, node)
 			local byte_size = bytes_to_store_value(#node.Value)
-			print_desc(self, `enum: {#node.Value} ids -> {byte_size} bytes per id`)
-			indent += 1
+			print_desc(self, node)
+			indent_lvl += 1
 			VisitorTraverseChildren(self, node)
-			indent -= 1
+			indent_lvl -= 1
 		end,
 		array = function(self, node)
-			print_desc(self, "array:")
-			indent += 1
+			print_desc(self, node)
+			indent_lvl += 1
 			VisitorTraverseChildren(self, node)
-			indent -= 1
+			indent_lvl -= 1
 		end,
 		periodic_array = function(self, node)
-			print_desc(self, "periodic_array:")
-			indent += 1
+			print_desc(self, node)
+			indent_lvl += 1
 			VisitorTraverseChildren(self, node)
-			indent -= 1
+			indent_lvl -= 1
 		end,
 		map = function(self, node)
-			print_desc(self, "map:")
-			indent += 1
+			print_desc(self, node)
+			indent_lvl += 1
 			VisitorTraverseChildren(self, node)
-			indent -= 1
+			indent_lvl -= 1
 		end,
 		struct = function(self, node)
-			print_desc(self, "struct:")
-			indent += 1
+			print_desc(self, node)
+			indent_lvl += 1
 			VisitorTraverseChildren(self, node)
-			indent -= 1
+			indent_lvl -= 1
 		end,
 		vector3 = function(self, node)
-			print_desc(self, "vector3:")
-			indent += 1
+			print_desc(self, node)
+			indent_lvl += 1
 			VisitorTraverseChildren(self, node)
-			indent -= 1
+			indent_lvl -= 1
 		end,
 		size_specifier = function(self, node)
 			-- handled by parent
 		end,
 		binding = function(self, node)
-			print_desc(self, "binding")
-			indent += 1
+			print_desc(self, node)
+			indent_lvl += 1
 			VisitorTraverseChildren(self, node)
-			indent -= 1
+			indent_lvl -= 1
 		end,
 		cframe = function(self, node)
-			print_desc(self, "cframe")
-			indent += 1
+			print_desc(self, node)
+			indent_lvl += 1
 			VisitorTraverseChildren(self, node)
-			indent -= 1
+			indent_lvl -= 1
 		end,
 		player = function(self, node)
-			print_desc(self, "player")
+			print_desc(self, node)
 		end
 	}
 
@@ -1504,7 +1529,7 @@ local function PrintAST(ast: ASTParseRoot | ASTValidRoot)
 end
 
 type ValidateVisitor = ParseVisitor<
-	ValidateVisitor,
+	VisitorInstance<ValidateVisitor>,
 	ASTValidRoot?,
 	nil,
 	number,
@@ -1589,7 +1614,7 @@ local ValidateVisitor: ValidateVisitor = {
 type SizeCalcFn<T> = (T) -> number
 type SizeCalcRootRet = { number | SizeCalcFn<unknown> }
 type SizeCalcVisitor = ValidVisitor<
-	SizeCalcVisitor,
+	VisitorInstance<SizeCalcVisitor>,
 	SizeCalcRootRet,
 	number,
 	number,
@@ -1843,7 +1868,7 @@ local SizeCalcVisitor: SizeCalcVisitor = {
 -- While the order is undefined, it is consistent as long as the table being iterated is not mutated
 type WriterFn<V> = (V, buffer, number) -> number
 type SerializeVisitor = ValidVisitor<
-	SerializeVisitor,
+	VisitorInstance<SerializeVisitor>,
 	(...any) -> buffer,
 	WriterFn<number>,
 	WriterFn<string>,
@@ -1893,14 +1918,24 @@ local SerializeVisitor: SerializeVisitor = {
 			return b
 		end
 
+		if self.CallStack then
+			serialize_args = CallStack.track_stack(self.CallStack, "serialize_args", serialize_args)
+		end
+
 		return serialize_args
 	end,
 	type_literal = function(self, node)
-		return writers[terminal_to_idx[node.Value]]
+		local writer = writers[terminal_to_idx[node.Value]]
+
+		if self.CallStack then
+			writer = CallStack.track_stack(self.CallStack, "s_string_literal", writer)
+		end
+
+		return writer
 	end,
 	string_literal = function(self, node)
 		local str = node.Value
-		return function(_, b: buffer, idx: number)
+		local function s_string_literal(_: string, b: buffer, idx: number)
 			local len = string.len(str)
 			local s = write_size_specifier(len, b, idx)
 
@@ -1908,12 +1943,24 @@ local SerializeVisitor: SerializeVisitor = {
 
 			return len + s
 		end
+
+		if self.CallStack then
+			s_string_literal = CallStack.track_stack(self.CallStack, "s_string_literal", s_string_literal)
+		end
+
+		return s_string_literal
 	end,
 	number_literal = function(self, node)
-		return writers[terminal_to_idx[node.Extra]]
+		local writer = writers[terminal_to_idx[node.Extra]]
+
+		if self.CallStack then
+			writer = CallStack.track_stack(self.CallStack, "s_number_literal", writer)
+		end
+
+		return writer
 	end,
 	string = function(self, node)
-		return function(t: string, b: buffer, idx: number)
+		local function s_string(t: string, b: buffer, idx: number)
 			local len = string.len(t)
 			local s = write_size_specifier(len, b, idx)
 
@@ -1921,20 +1968,38 @@ local SerializeVisitor: SerializeVisitor = {
 
 			return len + s
 		end
+
+		if self.CallStack then
+			s_string = CallStack.track_stack(self.CallStack, "s_string", s_string)
+		end
+
+		return s_string
 	end,
 	size_specifier = function(self, node)
-		return raw_byte_writers[bytes_to_store_value(node.Value)]
+		local s_size_specifier = raw_byte_writers[bytes_to_store_value(node.Value)]
+		
+		if self.CallStack then
+			s_size_specifier = CallStack.track_stack(self.CallStack, "s_size_specifier", s_size_specifier)
+		end
+
+		return s_size_specifier
 	end,
 	binding = function(self, node)
 		local children = VisitorCollectChildren(self, node)
 		local lhs, rhs = children[1], children[2]
-		return function(k, v, b: buffer, idx: number)
+		local function s_binding(k: any, v: any, b: buffer, idx: number)
 			local s = 0
 			s += lhs(k, b, idx)
 			s += rhs(v, b, idx + s)
 
 			return s
 		end
+		
+		if self.CallStack then
+			s_binding = CallStack.track_stack(self.CallStack, `s_binding {node.Value[1].Type}: {node.Value[2].Type}`, s_binding)
+		end
+
+		return s_binding
 	end,
 	enum = function(self, node)
 		local ast_children = node.Value
@@ -1945,7 +2010,7 @@ local SerializeVisitor: SerializeVisitor = {
 			str_to_num[v.Value] = i
 		end
 
-		local function f(t: { string }, b: buffer, idx: number)
+		local function s_enum(t: { string }, b: buffer, idx: number)
 			-- record the actual amount being written to the buffer
 			local s = write_size_specifier(#t, b, idx)
 			for i, v in t do
@@ -1954,13 +2019,17 @@ local SerializeVisitor: SerializeVisitor = {
 
 			return s
 		end
+		
+		if self.CallStack then
+			s_enum = CallStack.track_stack(self.CallStack, "s_enum", s_enum)
+		end
 
-		return f
+		return s_enum
 	end,
 	array = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
 
-		local function f(t: {}, b: buffer, idx: number)
+		local function s_array(t: {}, b: buffer, idx: number)
 			local s = 0
 
 			for i = 1, #t, 1 do
@@ -1969,14 +2038,18 @@ local SerializeVisitor: SerializeVisitor = {
 
 			return s
 		end
+		
+		if self.CallStack then
+			s_array = CallStack.track_stack(self.CallStack, "s_array", s_array)
+		end
 
-		return f
+		return s_array
 	end,
 	periodic_array = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
 		local period = #fns
 
-		local function f(t: {}, b: buffer, idx: number)
+		local function s_periodic_array(t: {}, b: buffer, idx: number)
 			local len = #t
 			local s = write_size_specifier(len / period, b, idx)
 
@@ -1988,13 +2061,18 @@ local SerializeVisitor: SerializeVisitor = {
 
 			return s
 		end
-		return f
+
+		if self.CallStack then
+			s_periodic_array = CallStack.track_stack(self.CallStack, "s_periodic_array", s_periodic_array)
+		end
+
+		return s_periodic_array
 	end,
 	map = function(self, node)
 		local children = VisitorCollectChildren(self, node)
 		local writer = children[1]
 
-		return function(t: {}, b: buffer, idx: number)
+		local function s_map(t: {}, b: buffer, idx: number)
 			local len = count_table_keys(t)
 			local s = write_size_specifier(len, b, idx)
 
@@ -2004,6 +2082,12 @@ local SerializeVisitor: SerializeVisitor = {
 
 			return s
 		end
+
+		if self.CallStack then
+			s_map = CallStack.track_stack(self.CallStack, "s_map", s_map)
+		end
+
+		return s_map
 	end,
 	struct = function(self, node)
 		local ast_children = node.Value
@@ -2018,7 +2102,7 @@ local SerializeVisitor: SerializeVisitor = {
 		end
 
 		if not has_optionals then
-			return function(t: {}, b: buffer, idx: number)
+			local function s_struct(t: {}, b: buffer, idx: number)
 				local s = 0
 				for i, writer in lhs_to_rhs_writer do
 					s += writer(t[i], b, idx + s)
@@ -2026,6 +2110,12 @@ local SerializeVisitor: SerializeVisitor = {
 
 				return s
 			end
+
+			if self.CallStack then
+				s_struct = CallStack.track_stack(self.CallStack, "s_struct (no opts)", s_struct)
+			end
+	
+			return s_struct
 		else
 			local maxn = #ast_children
 			local lhs_writer = raw_byte_writers[bytes_to_store_value(maxn)]
@@ -2036,7 +2126,7 @@ local SerializeVisitor: SerializeVisitor = {
 				lhs_index_map[lhs_literal] = i
 			end
 
-			return function(t: { }, b: buffer, idx: number)
+			local function s_struct(t: { }, b: buffer, idx: number)
 				local keys = count_table_keys(t)
 				local s = write_size_specifier(keys, b, idx)
 
@@ -2047,12 +2137,18 @@ local SerializeVisitor: SerializeVisitor = {
 
 				return s
 			end
+
+			if self.CallStack then
+				s_struct = CallStack.track_stack(self.CallStack, "s_struct (has opts)", s_struct)
+			end
+	
+			return s_struct
 		end
 	end,
 	vector3 = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
 
-		local function f(v: Vector3, b: buffer, idx: number)
+		local function s_vector3(v: Vector3, b: buffer, idx: number)
 			local s = 0
 			s += fns[1](v.X, b, idx + s)
 			s += fns[2](v.Y, b, idx + s)
@@ -2061,12 +2157,16 @@ local SerializeVisitor: SerializeVisitor = {
 			return s
 		end
 
-		return f
+		if self.CallStack then
+			s_vector3 = CallStack.track_stack(self.CallStack, "s_vector3", s_vector3)
+		end
+
+		return s_vector3
 	end,
 	cframe = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
 
-		local function f(v: CFrame, b: buffer, idx: number)
+		local function s_cframe(v: CFrame, b: buffer, idx: number)
 			local s = 0
 			s += fns[1](v.X, b, idx + s)
 			s += fns[2](v.Y, b, idx + s)
@@ -2087,25 +2187,35 @@ local SerializeVisitor: SerializeVisitor = {
 			return s + 6
 		end
 
-		return f
+		if self.CallStack then
+			s_cframe = CallStack.track_stack(self.CallStack, "s_cframe", s_cframe)
+		end
+
+		return s_cframe
 	end,
 	player = function(self, node)
-		return function(v: Player, b: buffer, idx: number)
+		local function s_player(v: Player, b: buffer, idx: number)
 			local user_id = v.UserId
 			local top = user_id // 2^32
 			local bottom = user_id % 2^32
 
-			buffer.writeu32(b, 0, top)
-			buffer.writeu32(b, 4, bottom)
+			buffer.writeu32(b, idx, top)
+			buffer.writeu32(b, idx + 4, bottom)
 
 			return 8
 		end
+
+		if self.CallStack then
+			s_player = CallStack.track_stack(self.CallStack, "s_player", s_player)
+		end
+
+		return s_player
 	end
 }
 
 type ReaderFn<V> = (buffer: buffer, idx: number) -> (V, number)
 type DeserializeVisitor = ValidVisitor<
-	DeserializeVisitor,
+	VisitorInstance<DeserializeVisitor>,
 	(buffer) -> ...unknown,
 	ReaderFn<number>,
 	ReaderFn<string>,
@@ -2130,7 +2240,7 @@ local DeserializeVisitor: DeserializeVisitor = {
 		local procedures = VisitorCollectChildren(self, node)
 		local arg_ct = #sizes
 
-		local function deserialize_buf(b: buffer)
+		local function deserialize_buf(b: buffer): unknown
 			local ret = table.create(arg_ct)
 			local cursor = 0
 
@@ -2142,6 +2252,10 @@ local DeserializeVisitor: DeserializeVisitor = {
 			end
 
 			return table.unpack(ret)
+		end
+
+		if self.CallStack then
+			deserialize_buf = CallStack.track_stack(self.CallStack, "deserialize_buf", deserialize_buf)
 		end
 
 		return deserialize_buf
@@ -2156,27 +2270,57 @@ local DeserializeVisitor: DeserializeVisitor = {
 		return nil
 	end,
 	type_literal = function(self, node)
-		return readers[terminal_to_idx[node.Value]]
+		local reader = readers[terminal_to_idx[node.Value]]
+
+		if self.CallStack then
+			reader = CallStack.track_stack(self.CallStack, "d_type_literal", reader)
+		end
+
+		return reader
 	end,
 	string_literal = function(self, node)
-		return function(b: buffer, idx: number)
+		local function d_string_literal(b: buffer, idx: number)
 			local bsize, s = read_size_specifier(b, idx)
 
 			return buffer.readstring(b, idx + s, bsize), bsize + s
 		end
+
+		if self.CallStack then
+			d_string_literal = CallStack.track_stack(self.CallStack, "d_string_literal", d_string_literal)
+		end
+
+		return d_string_literal
 	end,
 	number_literal = function(self, node)
-		return readers[terminal_to_idx[node.Extra]]
+		local reader = readers[terminal_to_idx[node.Extra]]
+
+		if self.CallStack then
+			reader = CallStack.track_stack(self.CallStack, "d_number_literal", reader)
+		end
+
+		return reader
 	end,
 	string = function(self, node)
-		return function(b: buffer, idx: number)
+		local function d_string(b: buffer, idx: number)
 			local bsize, s = read_size_specifier(b, idx)
 
 			return buffer.readstring(b, idx + s, bsize), bsize + s
 		end
+
+		if self.CallStack then
+			d_string = CallStack.track_stack(self.CallStack, "d_string", d_string)
+		end
+
+		return d_string
 	end,
 	size_specifier = function(self, node)
-		return raw_byte_readers[bytes_to_store_value(node.Value)]
+		local reader = raw_byte_readers[bytes_to_store_value(node.Value)]
+
+		if self.CallStack then
+			reader = CallStack.track_stack(self.CallStack, "d_size_specifier", reader)
+		end
+
+		return reader
 	end,
 	enum = function(self, node)
 		-- also has a size_specifier as the last child
@@ -2189,7 +2333,7 @@ local DeserializeVisitor: DeserializeVisitor = {
 			num_to_str[i] = v.Value
 		end
 
-		local function f(b: buffer, idx: number)
+		local function d_enum(b: buffer, idx: number)
 			local byte_size = byte_size
 			local len, s = read_size_specifier(b, idx)
 			local ret = table.create(len)
@@ -2205,13 +2349,17 @@ local DeserializeVisitor: DeserializeVisitor = {
 			return ret, s
 		end
 
-		return f
+		if self.CallStack then
+			d_enum = CallStack.track_stack(self.CallStack, "d_enum", d_enum)
+		end
+
+		return d_enum
 	end,
 	array = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
 		local len = #fns
 
-		local function f(b: buffer, idx: number)
+		local function d_array(b: buffer, idx: number)
 			local s = 0
 			local t = table.create(len)
 
@@ -2224,13 +2372,17 @@ local DeserializeVisitor: DeserializeVisitor = {
 			return t, s
 		end
 
-		return f
+		if self.CallStack then
+			d_array = CallStack.track_stack(self.CallStack, "d_array", d_array)
+		end
+
+		return d_array
 	end,
 	periodic_array = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
 		local len = #fns
 
-		local function f(b: buffer, idx: number)
+		local function d_periodic_array(b: buffer, idx: number)
 			local bsize, s = read_size_specifier(b, idx)
 			local t = table.create(bsize)
 
@@ -2245,13 +2397,17 @@ local DeserializeVisitor: DeserializeVisitor = {
 			return t, s
 		end
 
-		return f
+		if self.CallStack then
+			d_periodic_array = CallStack.track_stack(self.CallStack, "d_periodic_array", d_periodic_array)
+		end
+
+		return d_periodic_array
 	end,
 	map = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
 		local reader = fns[1]
 
-		local function f(b: buffer, idx: number)
+		local function d_map(b: buffer, idx: number)
 			local map_len, s = read_size_specifier(b, idx)
 			local t = table.create(map_len)
 
@@ -2264,7 +2420,11 @@ local DeserializeVisitor: DeserializeVisitor = {
 			return t, s
 		end
 
-		return f
+		if self.CallStack then
+			d_map = CallStack.track_stack(self.CallStack, "d_map", d_map)
+		end
+
+		return d_map
 	end,
 	struct = function(self, node)
 		local ast_children = node.Value
@@ -2280,7 +2440,7 @@ local DeserializeVisitor: DeserializeVisitor = {
 		local has_optionals = ASTChildrenHasOptionals(ast_children)
 
 		if not has_optionals then
-			return function(b: buffer, idx: number)
+			local function d_struct(b: buffer, idx: number)
 				local s = 0
 				local ret: { [number | string]: any } = table.create(struct_len)
 				for l, reader in map do
@@ -2291,6 +2451,12 @@ local DeserializeVisitor: DeserializeVisitor = {
 
 				return ret, s
 			end
+
+			if self.CallStack then
+				d_struct = CallStack.track_stack(self.CallStack, "d_struct (has opts)", d_struct)
+			end
+
+			return d_struct
 		else
 			local maxn = #ast_children
 			local lhs_reader = raw_byte_readers[bytes_to_store_value(maxn)]
@@ -2301,7 +2467,7 @@ local DeserializeVisitor: DeserializeVisitor = {
 				lhs_index_map[i] = lhs_literal
 			end
 
-			return function(b: buffer, idx: number)
+			local function d_struct(b: buffer, idx: number)
 				local keys, s = read_size_specifier(b, idx)
 				local ret: { [number | string]: unknown } = table.create(s)
 
@@ -2318,12 +2484,18 @@ local DeserializeVisitor: DeserializeVisitor = {
 
 				return ret, s
 			end
+
+			if self.CallStack then
+				d_struct = CallStack.track_stack(self.CallStack, "d_struct (no opts)", d_struct)
+			end
+
+			return d_struct
 		end
 	end,
 	vector3 = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
 
-		local function f(b: buffer, idx: number)
+		local function d_vector3(b: buffer, idx: number)
 			local s = 0
 			local x, s1 = fns[1](b, idx)
 			s += s1
@@ -2334,22 +2506,32 @@ local DeserializeVisitor: DeserializeVisitor = {
 			return Vector3.new(x, y, z), s + s3
 		end
 
-		return f
+		if self.CallStack then
+			d_vector3 = CallStack.track_stack(self.CallStack, "d_vector3", d_vector3)
+		end
+
+		return d_vector3
 	end,
 	binding = function(self, node)
 		local children = VisitorCollectChildren(self, node)
 		local lhs, rhs = children[1], children[2]
-		return function(b: buffer, idx: number)
+		local function d_binding(b: buffer, idx: number): (unknown, number, number)
 			local l, s = lhs(b, idx)
 			local r, s2 = rhs(b, idx + s)
 
 			return l, r, s + s2
 		end
+
+		if self.CallStack then
+			d_binding = CallStack.track_stack(self.CallStack, `d_binding {node.Value[1].Type}: {node.Value[2].Type}`, d_binding)
+		end
+
+		return d_binding
 	end,
 	cframe = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
 
-		local function f(b: buffer, idx: number)
+		local function d_cframe(b: buffer, idx: number)
 			local s = 0
 			local x, s1 = fns[1](b, idx + s)
 			s += s1
@@ -2370,11 +2552,15 @@ local DeserializeVisitor: DeserializeVisitor = {
 			
 			return v, s + 6
 		end
+		
+		if self.CallStack then
+			d_cframe = CallStack.track_stack(self.CallStack, "d_cframe", d_cframe)
+		end
 
-		return f
+		return d_cframe
 	end,
 	player = function(self, node)
-		return function(b: buffer, idx: number)
+		local function d_player(b: buffer, idx: number)
 			local top = buffer.readu32(b, idx)
 			local bottom = buffer.readu32(b, idx + 4)
 			local id = top * 2^32 + bottom
@@ -2382,8 +2568,30 @@ local DeserializeVisitor: DeserializeVisitor = {
 
 			return plr, 8
 		end
+		
+		if self.CallStack then
+			d_player = CallStack.track_stack(self.CallStack, "d_player", d_player)
+		end
+
+		return d_player
 	end
 }
+
+local function new_visitor_instance<T>(visitor: T): VisitorInstance<T>
+	local v = {
+		CallStack = false
+	}
+
+	setmetatable(v, { __index = visitor })
+
+	return (v :: any) :: VisitorInstance<T>
+end
+
+local function enable_callstacks<T>(visitor: T): T
+	visitor.CallStack = CallStack.new()
+
+	return visitor
+end
 
 local function str_to_ast(str)
 	local tokens, locations = Tokenizer(str)
@@ -2391,11 +2599,11 @@ local function str_to_ast(str)
 	return ast, locations
 end
 
-function mod.Compile<S, D>(str, annotate_errors: boolean?): (S?, D?, ASTValidRoot?)
+function mod.Compile<S, D>(str, annotate_errors: boolean?, runtime_traceback: boolean?): (S?, D?, ASTValidRoot?)
 	local parsed_ast_root, locations = str_to_ast(str)
 	--PrintAST(parsed_ast_root)
 
-	local valid_ast_root: ASTValidRoot? = ASTNodeAccept(parsed_ast_root, ValidateVisitor)
+	local valid_ast_root: ASTValidRoot? = ASTNodeAccept(parsed_ast_root, new_visitor_instance(ValidateVisitor))
 	if not valid_ast_root then
 		if annotate_errors then
 			PrintErrors(parsed_ast_root, str, locations)
@@ -2404,8 +2612,16 @@ function mod.Compile<S, D>(str, annotate_errors: boolean?): (S?, D?, ASTValidRoo
 		return
 	end
 
-	local serializer = ASTNodeAccept(valid_ast_root, SerializeVisitor)
-	local deserializer = ASTNodeAccept(valid_ast_root, DeserializeVisitor)
+	local serialize_visitor = new_visitor_instance(SerializeVisitor)
+	local deserialize_visitor = new_visitor_instance(DeserializeVisitor)
+
+	if runtime_traceback == true or RUNTIME_TRACEBACKS == true then
+		enable_callstacks(serialize_visitor)
+		enable_callstacks(deserialize_visitor)
+	end
+
+	local serializer = ASTNodeAccept(valid_ast_root, serialize_visitor)
+	local deserializer = ASTNodeAccept(valid_ast_root, deserialize_visitor)
 
 	return serializer, deserializer, valid_ast_root
 end

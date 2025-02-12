@@ -92,7 +92,7 @@ Config.RunBench = false
 Config.TESTING = true
 Config.LogSuccessfulSubTests = false
 -- Optional string, a module name
-Config.FocusTestOn = "SerDesmondTests"
+Config.FocusTestOn = false
 
 -- The `Load` tree
 Config.LogLoads = false

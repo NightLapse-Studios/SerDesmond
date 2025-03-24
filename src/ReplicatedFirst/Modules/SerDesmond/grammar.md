@@ -1,5 +1,6 @@
 ```EBNF
-    serdes = construct {"," construct}
+    root = chunk EOF
+    chunk = construct {"," construct}
 
     type_literal = "i8"
     | "i16"
@@ -14,7 +15,7 @@
     number_literal = NUMBER
 
     prim_construct = type_literal | string_literal | number_literal
-    construct = [attribute] prim_construct
+    construct = [attribute { attribute }] prim_construct
     | enum
     | array
     | periodic_array
@@ -25,8 +26,8 @@
     | bool
 
     enum = "enum" "(" string_literal {"," string_literal } ")"
-    array = "array" "(" construct {"," construct } ")"
-    periodic_array = "periodic_array" "(" construct {"," construct } ")"
+    array = "array" "(" chunk ")"
+    periodic_array = "periodic_array" "(" chunk ")"
     vector3 = "vector3" "(" type_literal, type_literal, type_literal ")"
     cframe = "cframe" "(" type_literal, type_literal, type_literal ")"
     map = "map" "(" binding ")"
@@ -35,7 +36,7 @@
     bool = "boolean" | "bool"
 
     binding = construct ":" construct
-    binding_list = binding { [","] binding }
+    binding_list = binding { [","] binding } [","]
 
     comment = "#" STRING ;
     attribute = "@" STRING

@@ -352,7 +352,11 @@ type ASTValidPlayer = {
 }
 
 type ASTValidChildren = { ASTValidNodes }
-type ASTValidTerminal = ASTValidTypeLiteral | ASTValidStringLiteral | ASTValidNumberLiteral | ASTValidString
+type ASTValidTerminal =
+	ASTValidTypeLiteral
+	| ASTValidStringLiteral
+	| ASTValidNumberLiteral
+	| ASTValidString
 type ASTValidHostNodes =
 	{ ASTValidTerminal }
 	& { 
@@ -574,9 +578,9 @@ local function count_table_keys(t: {})
 	return i
 end
 
-local function is_separator(c: string)
-	return c == "(" or c == ")" or c == "," or c == ":" or c == "[" or c == "]"
-end
+--[[ 
+	Parser
+]]
 
 type Token = Tokenizer.Token
 type Tokens = Tokenizer.Tokens
@@ -624,191 +628,174 @@ local Attributes = {
 	optional = true,
 }
 
-local function next_node_from_position<R>(
+local function is_separator(c: string)
+	return c == "(" or c == ")" or c == "," or c == ":" or c == "[" or c == "]"
+end
+
+local function parse_construct<R>(
 	tokens: Tokens,
 	idx: number
 ): (
 	R | ASTParseStringLiteral | ASTParseNumberLiteral | ASTParseError | ASTParseErrorWChildren,
 	number
 )
-	local leading_tokens_consumed = 0
 	local token = tokens[idx]
-	while token and is_separator(token) do
-		idx += 1
-		leading_tokens_consumed += 1
+	local node
+	local attribute
+	local consumed = 0
+	
+	if not token then
+		local node, consumed = NodeConstructors.error(tokens, idx - 1, "Unexpected end of input", 1)
+		return node, consumed
+	end
+	
+	while token == "@" do
+		attribute = tokens[idx + 1]
+		-- consume the @ as well as the attribute
+		idx += 2
+		consumed = 2
 		token = tokens[idx]
 	end
 
-	if not token then
-		local node, consumed = NodeConstructors.error(tokens, idx - 1, "Unexpected end of input", 1)
-		return node, consumed + leading_tokens_consumed
-	end
-
 	if token == '"' then
-		local node, consumed = NodeConstructors.string_literal(tokens, idx)
-		return node, consumed + leading_tokens_consumed
-	end
-
-	if tonumber(token) ~= nil then
-		local node, consumed = NodeConstructors.number_literal(tokens, idx)
-		return node, consumed + leading_tokens_consumed
-	end
-
-	if token == "@" then
-		local next_node, consumed = next_node_from_position(tokens, idx + 2)
-		
-		local attribute = tokens[idx + 1]
-		if not Attributes[attribute] then
-			if typeof(next_node.Value) == "table" then
-				local err, _ = NodeConstructors.error_with_children(tokens, idx + 1, `Unrecognized attribute {attribute}`, next_node.TokenSize + 2, next_node.Value)
-				return err, consumed + leading_tokens_consumed + 2
-			else
-				local err, _ = NodeConstructors.error_with_children(tokens, idx + 1, `Unrecognized attribute {attribute}`, 3, {next_node})
-				return err, consumed + leading_tokens_consumed + 2
-			end
-		end
-
-		next_node.Attributes[attribute] = true
-
-		return next_node, consumed + leading_tokens_consumed + 2
-	end
-
-	local node_ctor = Keywords[token]
-
-	if not node_ctor then
-		if tokens[idx + 1] == "(" then
-			local node, consumed = NodeConstructors.error_with_unparsed_children(tokens, idx, `Unrecognized type identifier {token}`)
-			return node, consumed + leading_tokens_consumed
-		else
-			local node, consumed = NodeConstructors.error(tokens, idx, `Unrecognized type identifier {token}`, 1)
-			return node, consumed + leading_tokens_consumed
-		end
-	end
-
-	local node, node_consumed = node_ctor(tokens, idx)
-	if node_consumed == nil or leading_tokens_consumed == nil then
-		node_ctor(tokens, idx)
-	end
-	return node, node_consumed + leading_tokens_consumed
-end
-
-local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | ASTParseErrorWChildren, number)
-	local lhs, rhs, consumed
-	local consumed_total = 0
-	lhs, consumed = next_node_from_position(tokens, idx)
-	consumed_total += consumed
-	idx += consumed
-
-	if tokens[idx] == ":" then
-		idx += 1
-		rhs, consumed = next_node_from_position(tokens, idx)
-		consumed_total += (consumed + 1)
-		idx += consumed
-
-		local binding, _ = NodeConstructors.binding(tokens, idx, { lhs, rhs }, consumed_total)
-
-		-- Hoist attributes, which will end up on the lhs since it will directly follow the attributes
-		for i,v in lhs.Attributes do
-			binding.Attributes[i] = v
-			lhs.Attributes[i] = nil
-		end
-
-		return binding, consumed_total
+		local _node, children_consumed = NodeConstructors.string_literal(tokens, idx)
+		node = _node
+		consumed += children_consumed
+	elseif tonumber(token) ~= nil then
+		local _node, children_consumed = NodeConstructors.number_literal(tokens, idx)
+		node = _node
+		consumed += children_consumed
 	else
-		rhs, consumed = next_node_from_position(tokens, idx)
-		consumed_total += consumed
-		idx += consumed
+		local node_ctor = Keywords[token]
 
-		return NodeConstructors.error_with_children(
-			tokens,
-			idx - consumed_total,
-			`Colon required after left hand side of type binding`,
-			consumed_total,
-			{ lhs, rhs }
-		)
+		if not node_ctor then
+			if tokens[idx + 1] == "(" then
+				local _node, children_consumed = NodeConstructors.error_with_unparsed_children(tokens, idx + 1, `Unrecognized type identifier {token}`)
+				node = _node
+				consumed += children_consumed
+			else
+				local _node, children_consumed = NodeConstructors.error(tokens, idx, `Unrecognized type identifier {token}`, 1)
+				node = _node
+				consumed += children_consumed
+			end
+		else
+			local _node, children_consumed = node_ctor(tokens, idx)
+			node = _node
+			consumed += children_consumed
+			-- Parser refactor: what was this for?
+--[[ 			if node_consumed == nil then
+				node_ctor(tokens, idx)
+			end ]]
+		end
 	end
+
+	if attribute then
+			-- Parser refactor: handle attribute errors
+--[[ 		if not Attributes[attribute] then
+			if typeof(node.Value) == "table" then
+				local err, _ = NodeConstructors.error_with_children(tokens, idx + 1, `Unrecognized attribute {attribute}`, node.TokenSize + 2, node.Value)
+				return err, consumed + 2
+			else
+				local err, _ = NodeConstructors.error_with_children(tokens, idx + 1, `Unrecognized attribute {attribute}`, 3, {node})
+				return err, consumed + 2
+			end
+		end ]]
+
+		node.Attributes[attribute] = true
+	end
+
+	return node, consumed
 end
 
-local function parse_binding_list(
-	tokens: Tokens,
-	idx: number
-): ({ ASTParseBinding | ASTParseError | ASTParseErrorWChildren }, number)
-	local children: { ASTParseBinding | ASTParseError | ASTParseErrorWChildren }, consumed_total = {}, 1
-
-	if tokens[idx] ~= "(" then
-		local err =
-			NodeConstructors.error(tokens, idx, `Unexpected token {tokens[idx]}: missing ( to open binding list`, 1)
-		table.insert(children, err)
-		return children, 1
-	end
-
-	idx += 1
-
-	while true do
-		local token = tokens[idx]
-		if not token then
-			local err = NodeConstructors.error(tokens, idx - 1, "Unexpected end of input", 1)
-			table.insert(children, err)
-			return children, consumed_total
-		end
-
-		if tokens[idx] == ")" then
-			break
-		end
-
-		local child, consumed = parse_binding(tokens, idx)
-		table.insert(children, child)
-		idx += consumed
-
-		if tokens[idx] == "," then
-			consumed += 1
-			idx += 1
-		end
-
-		consumed_total += consumed
-	end
-
-	consumed_total += 1
-
-	return children, consumed_total
-end
-
--- Parses a list of type literals or parent type nodes such as vector3/list
 local function parse_chunk(tokens: Tokens, idx: number): (ASTParseChildren, number)
 	local token_ct = #tokens
 	local consumed = 0
-	local nodes: ASTParseChildren = {}
+	local nodes: ASTParseChildren = { }
+
 	while idx <= token_ct do
-		local token = tokens[idx]
-
-		-- Not all chunks start with a `(`, for example the top level one
-		if idx == 1 and token == "(" then
-			consumed += 1
-			idx += 1
-			continue
-		elseif token == ")" then
-			consumed += 1
-			break
-		elseif is_separator(token) then
-			consumed += 1
-			idx += 1
-			continue
-		end
-
-		local root_node, children_consumed = next_node_from_position(tokens, idx)
+		local node, children_consumed = parse_construct(tokens, idx)
 
 		consumed += children_consumed
 		idx += children_consumed
 
-		if root_node then
-			table.insert(nodes, root_node)
+		if node then
+			table.insert(nodes, node)
 		end
 	end
 
 	return nodes, consumed
 end
 
-local function parse_token_stream(tokens: { string })
+
+
+local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | ASTParseErrorWChildren, number)
+	local consumed = 0
+	local lhs, _consumed = parse_construct(tokens, idx)
+	consumed += _consumed
+	idx += _consumed
+
+	if tokens[idx] == ":" then
+		local rhs, _consumed = parse_construct(tokens, idx + 1)
+		consumed += (_consumed + 1)
+		idx += _consumed
+
+		local binding, _ = NodeConstructors.binding(tokens, idx, { lhs, rhs }, consumed)
+
+		-- Hoist `@optional`
+		for i,v in lhs.Attributes do
+			if i == "optional" then
+				binding.Attributes[i] = v
+				lhs.Attributes[i] = nil
+			end
+		end
+
+		return binding, consumed
+	else
+		local rhs, _consumed = parse_construct(tokens, idx)
+		consumed += _consumed
+		idx += _consumed
+
+		return NodeConstructors.error_with_children(
+			tokens,
+			idx - consumed,
+			`Colon required after left hand side of type binding`,
+			consumed,
+			{ lhs, rhs }
+		)
+	end
+end
+
+local function parse_binding_list(tokens: Tokens, idx: number): ({ ASTParseBinding | ASTParseError | ASTParseErrorWChildren }, number)
+	local children = { }
+	local consumed = 0
+
+	while true do
+		local token = tokens[idx]
+		if not token then
+			local err = NodeConstructors.error(tokens, idx - 1, "Unexpected end of input", 1)
+			table.insert(children, err)
+			return children, consumed
+		end
+
+		if token == ")" then
+			break
+		end
+
+		local child, _consumed = parse_binding(tokens, idx)
+		table.insert(children, child)
+		idx += _consumed
+		consumed += _consumed
+
+		if tokens[idx] == "," then
+			consumed += 1
+			idx += 1
+		end
+	end
+
+	return children, consumed
+end
+
+local function parse_root(tokens: { string })
 	return NodeConstructors.root(tokens, 1)
 end
 
@@ -828,7 +815,7 @@ local function new_node<T, R>(type: string, value: T, index: number, tokens_cons
 	return (node :: any) :: R
 end
 
-local RootConstructs = {
+local HostNodes = {
 	type_literal = true,
 	string = true,
 	string_literal = true,
@@ -844,7 +831,7 @@ local RootConstructs = {
 }
 
 local function ASTNodeIsValidHost<Node>(node: Node)
-	return RootConstructs[node.Type] == true
+	return HostNodes[node.Type] == true
 end
 
 -- For visitors which return numbers for trivial nodes
@@ -923,7 +910,7 @@ end
 -- will be consuming tokens after the opening parenthesis
 
 local function root(tokens: Tokens, idx: number)
-	local children, consumed = parse_chunk(tokens, 1)
+	local children, consumed = parse_construct(tokens, 1)
 	local node: ASTParseRoot = new_node("root", children, idx, consumed)
 	return node, consumed
 end
@@ -942,7 +929,7 @@ local function error_with_children(
 	return node, token_size
 end
 local function error_with_unparsed_children(tokens: Tokens, idx: number, err: string)
-	local children, consumed = parse_chunk(tokens, idx + 1)
+	local children, consumed = parse_construct(tokens, idx + 1)
 	local consumed_total = consumed + 1
 	local node, _ = error_with_children(tokens, idx, err, consumed_total, children)
 	return node, consumed_total
@@ -2595,7 +2582,7 @@ end
 
 local function str_to_ast(str)
 	local tokens, locations = Tokenizer(str)
-	local ast = parse_token_stream(tokens)
+	local ast = parse_root(tokens)
 	return ast, locations
 end
 

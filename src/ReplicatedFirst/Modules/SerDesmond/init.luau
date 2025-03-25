@@ -654,7 +654,6 @@ local function new_node1<T, R>(type: string, value: T, index: number, tokens_con
 end
 
 local function add_node_error<R>(node: R, err: string)
-	print(err)
 	node.Errors = node.Errors or { }
 	table.insert(node.Errors, err)
 end
@@ -1019,16 +1018,12 @@ local function vector3(tokens: Tokens, idx: number)
 	end
 
 	if #children ~= 3 then
-		add_node_error(node, "vector3 expects 3 type literals for its vector components")
-	end
-
-	if #children ~= 3 then
-		add_node_error(node, "cframe expects 3 type literals for its vector components")
+		add_node_error(node, "vector3 expects 3 type literals")
 	end
 
 	for i, v in children do
 		if v.Type ~= "type_literal" then
-			add_node_error(v, "cframe expects type literals for its vector components only")
+			add_node_error(v, "vector3 expects only type literals")
 		end
 	end
 
@@ -1057,8 +1052,8 @@ local function cframe(tokens: Tokens, idx: number)
 	end
 
 	for i, v in children do
-		if v.Type ~= "type_literal" then
-			add_node_error(v, "cframe expects type literals for its vector components only")
+		if v.Type ~= "type_literal" and v.Type ~= "error" then
+			add_node_error(v, "cframe expects only type literals for its vector components")
 		end
 	end
 
@@ -1260,83 +1255,88 @@ local function PrintErrors(node: ASTNodes, src: string, locations: { TokenLocati
 	warn("SerDesmond:\nError compiling SerDes string\n\nTraceback:")
 	warn(trace)
 	warn("\n\nRaw source:")
-	warn(src)
+	-- print is used to be consistent with highlight_src
+	print(src)
 
 	for i = 1, #source_by_line, 1 do
 		line_start_idx[i] = string.len(source_by_line[i - 1] or "") + (line_start_idx[i - 1] or 0) + 1
 	end
 
+	local function highlight_src(node: ASTNode)
+		local location = locations[node.TokenIndex]
+
+		warn(`\nLn {location.Start.Line}:{location.Start.Index}`)
+		local line: string = source_by_line[location.Start.Line]
+		print(line)
+
+		local err_highlighter = ""
+		for i = line_start_idx[location.Start.Line], location.Start.Index - 1 do
+			local a = string.byte(src, i, i)
+			if a == TAB_BYTE then
+				err_highlighter ..= "\t"
+			else
+				err_highlighter ..= " "
+			end
+		end
+
+		local end_idx = if location.End.Line == location.Start.Line then location.End.Index else string.len(line)
+		for i = location.Start.Index, end_idx, 1 do
+			err_highlighter ..= "^"
+		end
+
+		warn(err_highlighter)
+	end
+
+	local function dump_errors(node: ASTNode)
+		if node.Errors == nil then return end
+		for i,v in node.Errors do
+			warn(v)
+		end
+	end
+
+	local function generic_visitor_host_node(self, node: any)
+		if node.Errors then
+			highlight_src(node)
+			dump_errors(node)
+		end
+		VisitorTraverseChildren(self, node)
+	end
+
+	local function generic_visitor_terminal(self, node: any)
+		if node.Errors then
+			highlight_src(node)
+			dump_errors(node)
+		end
+	end
+
 	local AnnotateSourceVisitor: ErrorReportVisitor = {
-		root = function(self, node)
-			VisitorTraverseChildren(self, node)
-		end,
+		root = generic_visitor_host_node,
 		comment = function(self, node)
 		end,
 		error = function(self, node)
-			local location = locations[node.TokenIndex]
-
-			warn(`\nL: {location.Start.Line}:{location.Start.Index}`)
-			local line: string = source_by_line[location.Start.Line]
-			print(line)
-
-			local err_highlighter = ""
-			for i = line_start_idx[location.Start.Line], location.Start.Index - 1 do
-				local a = string.byte(src, i, i)
-				if a == TAB_BYTE then
-					err_highlighter ..= "\t"
-				else
-					err_highlighter ..= " "
-				end
-			end
-
-			local end_idx = if location.End.Line == location.Start.Line then location.End.Index else string.len(line)
-			for i = location.Start.Index, end_idx, 1 do
-				err_highlighter ..= "^"
-			end
-
-			warn(err_highlighter)
-			warn("Error: " .. node.Extra)
+			highlight_src(node)
+			warn(node.Extra)
+			dump_errors(node)
 
 			if typeof(node.Value) == "table" then
 				VisitorTraverseChildren(self, node)
 			end
 		end,
-		type_literal = function(self, node)
-		end,
-		string_literal = function(self, node)
-		end,
-		number_literal = function(self, node)
-		end,
-		enum = function(self, node)
-			VisitorTraverseChildren(self, node)
-		end,
-		array = function(self, node)
-			VisitorTraverseChildren(self, node)
-		end,
-		periodic_array = function(self, node)
-			VisitorTraverseChildren(self, node)
-		end,
-		vector3 = function(self, node)
-			VisitorTraverseChildren(self, node)
-		end,
+		type_literal = generic_visitor_terminal,
+		string_literal = generic_visitor_terminal,
+		number_literal = generic_visitor_terminal,
+		enum = generic_visitor_host_node,
+		array = generic_visitor_host_node,
+		periodic_array = generic_visitor_host_node,
+		vector3 = generic_visitor_host_node,
 		size_specifier = function(self, node)
 		end,
-		binding = function(self, node)
-			VisitorTraverseChildren(self, node)
-		end,
-		map = function(self, node)
-			VisitorTraverseChildren(self, node)
-		end,
-		string = function(self, node)
-		end,
-		struct = function(self, node)
-			VisitorTraverseChildren(self, node)
-		end,
-		cframe = function(self, node)
-			VisitorTraverseChildren(self, node)
-		end,
-		player = function(self, node)
-		end
+		binding = generic_visitor_host_node,
+		map = generic_visitor_host_node,
+		string = generic_visitor_terminal,
+		struct = generic_visitor_host_node,
+		cframe = generic_visitor_host_node,
+		player = generic_visitor_terminal
 	}
 
 	ASTNodeAccept(node, AnnotateSourceVisitor)

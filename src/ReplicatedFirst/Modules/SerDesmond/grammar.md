@@ -14,8 +14,8 @@
     string_literal = '"' STRING '"'
     number_literal = NUMBER
 
-    prim_construct = type_literal | string_literal | number_literal
-    construct = [attribute { attribute }] prim_construct
+    literal = type_literal | string_literal | number_literal
+    construct = [attribute { attribute }] literal
     | enum
     | array
     | periodic_array

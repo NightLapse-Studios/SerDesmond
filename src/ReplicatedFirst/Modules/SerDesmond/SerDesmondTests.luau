@@ -26,71 +26,15 @@ end
 local LMT = require(game.ReplicatedFirst.Lib.LMTypes)
 function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 	if NORMAL_TESTS == true then
-		local array_str = [[
-			array(i8, i8)
-		]]
-		local periodic_array_str = [[
-			periodic_array(i8, i8)
-		]]
-		local map_str = [[
-			map(string: i8)
-		]]
-		local struct_str = [[
-			struct(
-				"a": i8,
-				"b": f64,
-				"c": i8,
-				1: array(i8, f32)
-			)
-		]]
-		local comments_in_weird_spots_str = [[
-			struct(
-				#test
-				"a": #yep
-				i8,
-				#test 2
-				# This is still illegal:
-				# "b" #yep
-				# : i16
-			),
-			vector3(
-				#test
-				i8
-				#test
-				,
-				u8,
-				i16
-			)
-		]]
-		local enum_str = [[
-			enum("asd", "asdf", "asdfg")
-		]]
-		local array_contains_host_nodes_str = [[
-			array(
-				struct("asdf": i8),
-				vector3(i8, i8, i8),
-				string,
-				array(i8, i8),
-				periodic_array(i8),
-				enum("one", "two", "three"),
-				map(i8: string)
-			)
-		]]
-		local cframe_test_string = [[
-			cframe(i8, u32, i8)
-		]]
-
-		local attribute_test_string = [[
+		local _, struct_with_optionals = pcall(function()
+			return SerDesmond.PrettyCompile([[
 			struct(
 				"Thing1": i8,
 				@optional
 				"Thing2": i8,
 				"Thing3": i8
 			)
-		]]
-
-		local _, struct_with_optionals = pcall(function()
-			return SerDesmond.PrettyCompile(attribute_test_string, true)
+		]], true)
 		end)
 
 		T:Test("Optional attribute", function()
@@ -112,28 +56,73 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 		end)
 
 		local _, struct = pcall(function()
-			return SerDesmond.PrettyCompile(struct_str)
+			return SerDesmond.PrettyCompile([[
+				struct(
+					"a": i8,
+					"b": f64,
+					"c": i8,
+					1: array(i8, f32)
+				)
+			]])
 		end)
 		local _, map = pcall(function()
-			return SerDesmond.PrettyCompile(map_str)
+			return SerDesmond.PrettyCompile([[
+				map(string: i8)
+			]])
 		end)
 		local _, array = pcall(function()
-			return SerDesmond.PrettyCompile(array_str)
+			return SerDesmond.PrettyCompile([[
+				array(i8, i8)
+			]])
 		end)
 		local _, p_array = pcall(function()
-			return SerDesmond.PrettyCompile(periodic_array_str)
+			return SerDesmond.PrettyCompile([[
+				periodic_array(i8, i8)
+			]])
 		end)
 		local _, enum = pcall(function()
-			return SerDesmond.PrettyCompile(enum_str)
+			return SerDesmond.PrettyCompile([[
+				enum("asd", "asdf", "asdfg")
+			]])
 		end)
 		local _, comments_in_weird_spots = pcall(function()
-			return SerDesmond.PrettyCompile(comments_in_weird_spots_str, true)
+			return SerDesmond.PrettyCompile([[
+				struct(
+					#test
+					"a": #yep
+					i8,
+					#test 2
+					# This is still illegal:
+					# "b" #yep
+					# : i16
+				),
+				vector3(
+					#test
+					i8
+					#test
+					,
+					u8,
+					i16
+				)
+			]], true)
 		end)
 		local _, array_contains_host_nodes = pcall(function()
-			return SerDesmond.PrettyCompile(array_contains_host_nodes_str)
+			return SerDesmond.PrettyCompile([[
+				array(
+					struct("asdf": i8),
+					vector3(i8, i8, i8),
+					string,
+					array(i8, i8),
+					periodic_array(i8),
+					enum("one", "two", "three"),
+					map(i8: string)
+				)
+			]])
 		end)
 		local _, cframe_test = pcall(function()
-			return SerDesmond.PrettyCompile(cframe_test_string)
+			return SerDesmond.PrettyCompile([[
+				cframe(i8, u32, i8)
+			]])
 		end)
 
 		T:Test("Size specifier", function()

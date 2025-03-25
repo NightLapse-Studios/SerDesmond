@@ -1294,7 +1294,7 @@ local function PrintErrors(node: ASTNodes, src: string, locations: { TokenLocati
 		end
 	end
 
-	local function generic_visitor_host_node(self, node: any)
+	local function generic_print_visitor_host_node(self, node: any)
 		if node.Errors then
 			highlight_src(node)
 			dump_errors(node)
@@ -1302,7 +1302,7 @@ local function PrintErrors(node: ASTNodes, src: string, locations: { TokenLocati
 		VisitorTraverseChildren(self, node)
 	end
 
-	local function generic_visitor_terminal(self, node: any)
+	local function generic_print_visitor_terminal(self, node: any)
 		if node.Errors then
 			highlight_src(node)
 			dump_errors(node)
@@ -1310,7 +1310,7 @@ local function PrintErrors(node: ASTNodes, src: string, locations: { TokenLocati
 	end
 
 	local AnnotateSourceVisitor: ErrorReportVisitor = {
-		root = generic_visitor_host_node,
+		root = generic_print_visitor_host_node,
 		comment = function(self, node)
 		end,
 		error = function(self, node)
@@ -1322,21 +1322,21 @@ local function PrintErrors(node: ASTNodes, src: string, locations: { TokenLocati
 				VisitorTraverseChildren(self, node)
 			end
 		end,
-		type_literal = generic_visitor_terminal,
-		string_literal = generic_visitor_terminal,
-		number_literal = generic_visitor_terminal,
-		enum = generic_visitor_host_node,
-		array = generic_visitor_host_node,
-		periodic_array = generic_visitor_host_node,
-		vector3 = generic_visitor_host_node,
+		type_literal = generic_print_visitor_terminal,
+		string_literal = generic_print_visitor_terminal,
+		number_literal = generic_print_visitor_terminal,
+		enum = generic_print_visitor_host_node,
+		array = generic_print_visitor_host_node,
+		periodic_array = generic_print_visitor_host_node,
+		vector3 = generic_print_visitor_host_node,
 		size_specifier = function(self, node)
 		end,
-		binding = generic_visitor_host_node,
-		map = generic_visitor_host_node,
-		string = generic_visitor_terminal,
-		struct = generic_visitor_host_node,
-		cframe = generic_visitor_host_node,
-		player = generic_visitor_terminal
+		binding = generic_print_visitor_host_node,
+		map = generic_print_visitor_host_node,
+		string = generic_print_visitor_terminal,
+		struct = generic_print_visitor_host_node,
+		cframe = generic_print_visitor_host_node,
+		player = generic_print_visitor_terminal
 	}
 
 	ASTNodeAccept(node, AnnotateSourceVisitor)
@@ -1481,6 +1481,17 @@ type ValidateVisitor = ParseVisitor<
 	nil
 >
 
+local function generic_validate_visitor_host_node(self: ValidateVisitor, node: any)
+	if node.Errors then
+		return math.huge
+	end
+	return sum(VisitorCollectChildren(self, node))
+end
+
+local function generic_validate_visitor_terminal(self: ValidateVisitor, node: any)
+	if node.Errors then return math.huge else return nil end
+end
+
 local ValidateVisitor: ValidateVisitor = {
 	root = function(self, node)
 		local is_valid = sum(VisitorCollectChildren(self, node)) < math.huge
@@ -1496,48 +1507,22 @@ local ValidateVisitor: ValidateVisitor = {
 	error = function(self, node)
 		return math.huge
 	end,
-	type_literal = function(self, node)
-		return nil
-	end,
-	string_literal = function(self, node)
-		return nil
-	end,
-	number_literal = function(self, node)
-		return nil
-	end,
-	string = function(self, node)
-		return nil
-	end,
-	enum = function(self, node)
-		return sum(VisitorCollectChildren(self, node))
-	end,
-	array = function(self, node)
-		return sum(VisitorCollectChildren(self, node))
-	end,
-	map = function(self, node)
-		return sum(VisitorCollectChildren(self, node))
-	end,
-	struct = function(self, node)
-		return sum(VisitorCollectChildren(self, node))
-	end,
-	periodic_array = function(self, node)
-		return sum(VisitorCollectChildren(self, node))
-	end,
-	vector3 = function(self, node)
-		return sum(VisitorCollectChildren(self, node))
-	end,
+	type_literal = generic_validate_visitor_terminal,
+	string_literal = generic_validate_visitor_terminal,
+	number_literal = generic_validate_visitor_terminal,
+	string = generic_validate_visitor_terminal,
+	enum = generic_validate_visitor_host_node,
+	array = generic_validate_visitor_host_node,
+	map = generic_validate_visitor_host_node,
+	struct = generic_validate_visitor_host_node,
+	periodic_array = generic_validate_visitor_host_node,
+	vector3 = generic_validate_visitor_host_node,
 	size_specifier = function(self, node)
 		return nil
 	end,
-	binding = function(self, node)
-		return sum(VisitorCollectChildren(self, node))
-	end,
-	cframe = function(self, node)
-		return sum(VisitorCollectChildren(self, node))
-	end,
-	player = function(self, node)
-		return nil
-	end
+	binding = generic_validate_visitor_host_node,
+	cframe = generic_validate_visitor_host_node,
+	player = generic_validate_visitor_terminal
 }
 
 -- Calculates the byte size each argument to the serializer will take up

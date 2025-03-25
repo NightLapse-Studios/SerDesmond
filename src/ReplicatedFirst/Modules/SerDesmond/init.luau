@@ -1,5 +1,5 @@
 --!strict
---!native
+----!native
 
 local Tokenizer = require(script.Tokenizer)
 local CallStack = require(script.DebugCallStack)
@@ -28,364 +28,191 @@ type PrimitiveLiterals =
 	| f32_literal
 	| f64_literal
 
-
-
 type NodeAttributes = {
 	[string]: any,
 }
 
-
-
-type ASTParseRoot = {
+type ASTRoot = {
 	Type: "root",
-	Value: ASTParseChildren,
+	Value: ASTNodes,
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseError = {
+type ASTError = {
 	Type: "error",
 	Value: Token,
 	Extra: string,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseErrorWChildren = {
+type ASTErrorWChildren = {
 	Type: "error",
-	Value: ASTParseChildren,
+	Value: ASTNodes,
 	Extra: string,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	-- TODO: Unimplemented This can happen if a host node is found where only literals should be
+	-- The host must tell its child (which is a host but shouldn't be) that it should be
+	-- a literal
+	Errors: { string }?
 }
-type ASTParseComment = {
+type ASTComment = {
 	Type: "comment",
 	Value: string,
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseTypeLiteral = {
+type ASTTypeLiteral = {
 	Type: "type_literal",
 	Value: PrimitiveLiterals,
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseStringLiteral = {
+type ASTStringLiteral = {
 	Type: "string_literal",
 	Value: string,
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseNumberLiteral = {
+type ASTNumberLiteral = {
 	Type: "number_literal",
 	Value: number,
 	Extra: PrimitiveLiterals,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseEnum = {
+type ASTEnum = {
 	Type: "enum",
-	Value: { ASTParseStringLiteral | ASTParseError | ASTParseErrorWChildren },
+	Value: { ASTStringLiteral | ASTError | ASTErrorWChildren },
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseArray = {
+type ASTArray = {
 	Type: "array",
-	Value: ASTParseHostNodes,
+	Value: { ASTConstruct | ASTError | ASTErrorWChildren },
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParsePeriodicArray = {
+type ASTPeriodicArray = {
 	Type: "periodic_array",
-	Value: ASTParseHostNodes,
+	Value: { ASTConstruct | ASTError | ASTErrorWChildren },
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseVector3 = {
+type ASTVector3 = {
 	Type: "vector3",
-	Value: { ASTParseTypeLiteral | ASTParseError | ASTParseErrorWChildren },
+	Value: { ASTTypeLiteral | ASTError | ASTErrorWChildren },
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseSizeSpecifier = {
+type ASTSizeSpecifier = {
 	Type: "size_specifier",
 	Value: number,
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseBinding = {
+type ASTBinding = {
 	Type: "binding",
-	Value: ASTParseTerminals,
+	Value: { ASTConstruct | ASTError | ASTErrorWChildren },
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseMap = {
+type ASTMap = {
 	Type: "map",
-	Value: { ASTParseBinding },
+	Value: { ASTBinding | ASTError | ASTErrorWChildren },
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseString = {
+type ASTString = {
 	Type: "string",
 	Value: unknown,
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseStruct = {
+type ASTStruct = {
 	Type: "struct",
-	Value: { ASTParseBinding | ASTParseError },
+	Value: { ASTBinding | ASTError | ASTErrorWChildren },
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParseCFrame = {
+type ASTCFrame = {
 	Type: "cframe",
-	Value: { PrimitiveLiterals | ASTParseError },
+	Value: { ASTTypeLiteral | ASTError | ASTErrorWChildren },
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
-type ASTParsePlayer = {
+type ASTPlayer = {
 	Type: "player",
-	Value: { ASTParsePlayer },
+	-- @NoCommit: wtf?
+	Value: { ASTPlayer },
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
+	Errors: { string }?
 }
 
-type ASTParseChildren = { ASTParseNodes }
-type ASTParseTerminal =
-	ASTParseTypeLiteral
-	| ASTParseStringLiteral
-	| ASTParseNumberLiteral
-	| ASTParseString
-	| ASTParseError
-	| ASTParsePlayer
-type ASTParseHostNodes =
-	ASTParseTerminal
-	& {
-		ASTParseVector3
-		| ASTParseEnum
-		| ASTParseArray
-		| ASTParsePeriodicArray
-		| ASTParseMap
-		| ASTParseStruct
-		| ASTParseErrorWChildren
-		| ASTParseCFrame
-		| ASTParsePlayer
-	}
-type ASTParseTerminals = { ASTParseTerminal | ASTParseError | ASTParseErrorWChildren }
-type ASTParseNodes =
-	ASTParseError
-	| ASTParseErrorWChildren
-	| ASTParseComment
-	| ASTParseTypeLiteral
-	| ASTParseStringLiteral
-	| ASTParseNumberLiteral
-	| ASTParseEnum
-	| ASTParseArray
-	| ASTParsePeriodicArray
-	| ASTParseVector3
-	| ASTParseSizeSpecifier
-	| ASTParseBinding
-	| ASTParseMap
-	| ASTParseString
-	| ASTParseStruct
-	| ASTParseCFrame
-	| ASTParsePlayer
+type ASTLiteral = ASTTypeLiteral | ASTStringLiteral | ASTNumberLiteral
+type ASTHostConstruct = ASTEnum
+	| ASTArray
+	| ASTPeriodicArray
+	| ASTVector3
+	| ASTMap
+	| ASTCFrame
+	| ASTPlayer
+type ASTConstruct = ASTLiteral | ASTHostConstruct
 
-type ASTValidRoot = {
-	Type: "root",
-	Value: ASTValidChildren,
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidComment = {
-	Type: "comment",
-	Value: string,
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidTypeLiteral = {
-	Type: "type_literal",
-	Value: PrimitiveLiterals,
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidStringLiteral = {
-	Type: "string_literal",
-	Value: string,
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidNumberLiteral = {
-	Type: "number_literal",
-	Value: number,
-	Extra: PrimitiveLiterals,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidEnum = {
-	Type: "enum",
-	Value: { ASTValidStringLiteral },
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidArray = {
-	Type: "array",
-	Value: ASTValidHostNodes,
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidPeriodicArray = {
-	Type: "periodic_array",
-	Value: ASTValidHostNodes,
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidVector3 = {
-	Type: "vector3",
-	Value: { ASTValidTypeLiteral },
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidSizeSpecifier = {
-	Type: "size_specifier",
-	Value: number,
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidBinding = {
-	Type: "binding",
-	Value: ASTValidTerminals,
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidMap = {
-	Type: "map",
-	Value: { ASTValidBinding },
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidString = {
-	Type: "string",
-	Value: unknown,
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidStruct = {
-	Type: "struct",
-	Value: { ASTValidBinding },
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidCFrame = {
-	Type: "cframe",
-	Value: { PrimitiveLiterals },
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-type ASTValidPlayer = {
-	Type: "player",
-	Value: false,
-	Extra: false,
-	TokenIndex: number,
-	TokenSize: number,
-	Attributes: NodeAttributes,
-}
-
-type ASTValidChildren = { ASTValidNodes }
-type ASTValidTerminal =
-	ASTValidTypeLiteral
-	| ASTValidStringLiteral
-	| ASTValidNumberLiteral
-	| ASTValidString
-type ASTValidHostNodes =
-	{ ASTValidTerminal }
-	& { 
-		ASTValidVector3
-		| ASTValidEnum
-		| ASTValidArray
-		| ASTValidPeriodicArray
-		| ASTValidMap
-		| ASTValidStruct
-		| ASTValidCFrame
-		| ASTValidPlayer
-	}
-type ASTValidTerminals = { ASTValidTerminal }
-type ASTValidNodes =
-	ASTValidComment
-	| ASTValidTypeLiteral
-	| ASTValidStringLiteral
-	| ASTValidNumberLiteral
-	| ASTValidEnum
-	| ASTValidArray
-	| ASTValidPeriodicArray
-	| ASTValidVector3
-	| ASTValidSizeSpecifier
-	| ASTValidBinding
-	| ASTValidMap
-	| ASTValidString
-	| ASTValidStruct
-	| ASTValidCFrame
-	| ASTValidPlayer
+type ASTNode = ASTConstruct | ASTError | ASTErrorWChildren
+type ASTValidNode = ASTConstruct
+type ASTNodes = { ASTNode }
+type ASTValidNodes = { ASTValidNode }
 
 local TAB_BYTE = string.byte("\t")
 
@@ -590,38 +417,38 @@ type TokenLocation = Tokenizer.TokenLocation
 type NodeConstructor<R, E...> = (tokens: Tokens, idx: number, E...) -> (R, number)
 
 local NodeConstructors: {
-	root: NodeConstructor<ASTParseChildren>,
-	error: NodeConstructor<ASTParseError, string, number>,
-	error_with_unparsed_children: NodeConstructor<ASTParseErrorWChildren, string>,
-	error_with_children: NodeConstructor<ASTParseErrorWChildren, string, number, ASTParseChildren>,
+	root: NodeConstructor<ASTNodes>,
+	error: NodeConstructor<ASTError, string, number>,
+	error_with_unparsed_children: NodeConstructor<ASTErrorWChildren, string>,
+	error_with_children: NodeConstructor<ASTErrorWChildren, string, number, ASTNodes>,
 	comment: NodeConstructor<nil>,
-	type_literal: NodeConstructor<ASTParseTypeLiteral>,
-	string_literal: NodeConstructor<ASTParseStringLiteral>,
-	number_literal: NodeConstructor<ASTParseNumberLiteral | ASTParseError>,
+	type_literal: NodeConstructor<ASTTypeLiteral>,
+	string_literal: NodeConstructor<ASTStringLiteral>,
+	number_literal: NodeConstructor<ASTNumberLiteral | ASTError>,
 	-- TODO: This was designed out but may be used again for predicting max sizes?
-	size_specifier: NodeConstructor<ASTParseSizeSpecifier | ASTParseError>,
-	max_size: NodeConstructor<ASTParseSizeSpecifier | ASTParseError>,
-	binding: NodeConstructor<ASTParseBinding, ASTValidTerminals, number>,
+	size_specifier: NodeConstructor<ASTSizeSpecifier | ASTError>,
+	max_size: NodeConstructor<ASTSizeSpecifier | ASTError>,
+	binding: NodeConstructor<ASTBinding, { ASTConstruct }, number>,
 }
 
 local Keywords: {
-	i8: NodeConstructor<ASTParseTypeLiteral>,
-	i16: NodeConstructor<ASTParseTypeLiteral>,
-	i32: NodeConstructor<ASTParseTypeLiteral>,
-	u8: NodeConstructor<ASTParseTypeLiteral>,
-	u16: NodeConstructor<ASTParseTypeLiteral>,
-	u32: NodeConstructor<ASTParseTypeLiteral>,
-	f32: NodeConstructor<ASTParseTypeLiteral>,
-	f64: NodeConstructor<ASTParseTypeLiteral>,
-	string: NodeConstructor<ASTParseString>,
-	enum: NodeConstructor<ASTParseEnum>,
-	array: NodeConstructor<ASTParseArray>,
-	periodic_array: NodeConstructor<ASTParsePeriodicArray | ASTParseError>,
-	map: NodeConstructor<ASTParseMap | ASTParseError>,
-	struct: NodeConstructor<ASTParseStruct | ASTParseError>,
-	vector3: NodeConstructor<ASTParseVector3 | ASTParseError>,
-	cframe: NodeConstructor<ASTParseCFrame | ASTParseError>,
-	player: NodeConstructor<ASTParsePlayer>,
+	i8: NodeConstructor<ASTTypeLiteral>,
+	i16: NodeConstructor<ASTTypeLiteral>,
+	i32: NodeConstructor<ASTTypeLiteral>,
+	u8: NodeConstructor<ASTTypeLiteral>,
+	u16: NodeConstructor<ASTTypeLiteral>,
+	u32: NodeConstructor<ASTTypeLiteral>,
+	f32: NodeConstructor<ASTTypeLiteral>,
+	f64: NodeConstructor<ASTTypeLiteral>,
+	string: NodeConstructor<ASTString>,
+	enum: NodeConstructor<ASTEnum>,
+	array: NodeConstructor<ASTArray>,
+	periodic_array: NodeConstructor<ASTPeriodicArray | ASTError>,
+	map: NodeConstructor<ASTMap | ASTError>,
+	struct: NodeConstructor<ASTStruct | ASTError>,
+	vector3: NodeConstructor<ASTVector3 | ASTError>,
+	cframe: NodeConstructor<ASTCFrame | ASTError>,
+	player: NodeConstructor<ASTPlayer>,
 }
 
 local Attributes = {
@@ -636,7 +463,7 @@ local function parse_construct<R>(
 	tokens: Tokens,
 	idx: number
 ): (
-	R | ASTParseStringLiteral | ASTParseNumberLiteral | ASTParseError | ASTParseErrorWChildren,
+	ASTConstruct | ASTError | ASTErrorWChildren,
 	number
 )
 	local token = tokens[idx]
@@ -707,20 +534,29 @@ local function parse_construct<R>(
 	return node, consumed
 end
 
-local function parse_chunk(tokens: Tokens, idx: number): (ASTParseChildren, number)
+-- It is the caller's responsibility to consume the parenthesis
+local function parse_chunk(tokens: Tokens, idx: number): (ASTNodes, number)
 	local token_ct = #tokens
 	local consumed = 0
-	local nodes: ASTParseChildren = { }
+	local nodes: ASTNodes = { }
 
 	while idx <= token_ct do
 		local node, children_consumed = parse_construct(tokens, idx)
 
-		consumed += children_consumed
-		idx += children_consumed
-
 		if node then
 			table.insert(nodes, node)
 		end
+		
+		local next_token = tokens[idx + children_consumed]
+		if next_token == "," then
+			children_consumed += 1
+		elseif next_token == ")" then
+			consumed += children_consumed
+			break
+		end
+		
+		consumed += children_consumed
+		idx += children_consumed
 	end
 
 	return nodes, consumed
@@ -728,7 +564,7 @@ end
 
 
 
-local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | ASTParseErrorWChildren, number)
+local function parse_binding(tokens: Tokens, idx: number): (ASTBinding | ASTErrorWChildren, number)
 	local consumed = 0
 	local lhs, _consumed = parse_construct(tokens, idx)
 	consumed += _consumed
@@ -737,7 +573,7 @@ local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | AS
 	if tokens[idx] == ":" then
 		local rhs, _consumed = parse_construct(tokens, idx + 1)
 		consumed += (_consumed + 1)
-		idx += _consumed
+		idx += (_consumed + 1)
 
 		local binding, _ = NodeConstructors.binding(tokens, idx, { lhs, rhs }, consumed)
 
@@ -765,8 +601,8 @@ local function parse_binding(tokens: Tokens, idx: number): (ASTParseBinding | AS
 	end
 end
 
-local function parse_binding_list(tokens: Tokens, idx: number): ({ ASTParseBinding | ASTParseError | ASTParseErrorWChildren }, number)
-	local children = { }
+local function parse_binding_list(tokens: Tokens, idx: number): ({ ASTBinding | ASTError | ASTErrorWChildren }, number)
+	local children: { ASTBinding | ASTError | ASTErrorWChildren } = { }
 	local consumed = 0
 
 	while true do
@@ -799,7 +635,8 @@ local function parse_root(tokens: { string })
 	return NodeConstructors.root(tokens, 1)
 end
 
-local function new_node<T, R>(type: string, value: T, index: number, tokens_consumed: number, extra: string?): R
+-- Generic AST node constructor
+local function new_node1<T, R>(type: string, value: T, index: number, tokens_consumed: number, extra: string?, errors: { string }?): R
 	-- @Types
 	-- Ideally calling this function with data that doesn't align with the node types wouldn't work
 	-- but for some reason it either always works or never works depending on the signature
@@ -810,9 +647,30 @@ local function new_node<T, R>(type: string, value: T, index: number, tokens_cons
 		TokenSize = tokens_consumed,
 		Extra = extra or false,
 		Attributes = { } :: NodeAttributes,
+		Errors = errors
 	}
 
 	return (node :: any) :: R
+end
+
+local function add_node_error<R>(node: R, err: string)
+	print(err)
+	node.Errors = node.Errors or { }
+	table.insert(node.Errors, err)
+end
+
+-- AST node constructor for when the caller will do some of the construction
+local function new_node2<R>(type: string, index: number): R
+	local node = {
+		Type = type,
+		Value = false,
+		TokenIndex = index,
+		TokenSize = -1,
+		Extra = false,
+		Attributes = { } :: NodeAttributes,
+	}
+
+	return node
 end
 
 local HostNodes = {
@@ -910,12 +768,12 @@ end
 -- will be consuming tokens after the opening parenthesis
 
 local function root(tokens: Tokens, idx: number)
-	local children, consumed = parse_construct(tokens, 1)
-	local node: ASTParseRoot = new_node("root", children, idx, consumed)
+	local children, consumed = parse_chunk(tokens, 1)
+	local node: ASTRoot = new_node1("root", children, idx, consumed)
 	return node, consumed
 end
 local function _error(tokens: Tokens, idx: number, err: string, size: number)
-	local node: ASTParseError = new_node("error", tokens[idx], idx, size, err)
+	local node: ASTError = new_node1("error", tokens[idx], idx, size, err)
 	return node, size
 end
 local function error_with_children(
@@ -923,15 +781,26 @@ local function error_with_children(
 	idx: number,
 	err: string,
 	token_size: number,
-	children: ASTParseChildren
+	children: ASTNodes
 )
-	local node: ASTParseErrorWChildren = new_node("error", children, idx, token_size, err)
+	local node: ASTErrorWChildren = new_node1("error", children, idx, token_size, err)
 	return node, token_size
 end
 local function error_with_unparsed_children(tokens: Tokens, idx: number, err: string)
-	local children, consumed = parse_construct(tokens, idx + 1)
-	local consumed_total = consumed + 1
+	local children, consumed = parse_construct(tokens, idx + 2)
+	local consumed_total = consumed + 2
 	local node, _ = error_with_children(tokens, idx, err, consumed_total, children)
+	
+	if tokens[idx + 1] ~= "(" then
+		add_node_error(node, "Internal error: tried to parse children of error node, but no opening parenthesis")
+	end
+
+	if tokens[idx + consumed_total] ~= ")" then
+		add_node_error(node, `Expected closing parenthesis after {tokens[idx]}`)
+	else
+		consumed_total += 1
+	end
+
 	return node, consumed_total
 end
 local function comment(tokens: Tokens, idx: number)
@@ -940,12 +809,24 @@ local function comment(tokens: Tokens, idx: number)
 	return nil, 1
 end
 local function type_literal(tokens: Tokens, idx: number)
-	local node: ASTParseTypeLiteral = new_node("type_literal", tokens[idx], idx, 1)
+	local node: ASTTypeLiteral = new_node1("type_literal", tokens[idx], idx, 1)
 	return node, 1
 end
 local function string_literal(tokens: Tokens, idx: number)
-	local node: ASTParseStringLiteral = new_node("string_literal", tokens[idx + 1], idx, 3)
-	return node, 3
+	local node: ASTStringLiteral = new_node2("string_literal", idx)
+
+	local size
+	if tokens[idx + 2] ~= "\"" then
+		add_node_error(node, "string is missing closing quote")
+		size = 2
+	else
+		size = 3
+	end
+
+	node.Value = tokens[idx + 1]
+	node.TokenSize = size
+
+	return node, size
 end
 local function number_literal(tokens: Tokens, idx: number)
 	local n = tonumber(tokens[idx])
@@ -957,169 +838,233 @@ local function number_literal(tokens: Tokens, idx: number)
 			primitive = "f64"
 		end
 
-		local node: ASTParseNumberLiteral = new_node("number_literal", n, idx, 1, primitive)
+		local node: ASTNumberLiteral = new_node1("number_literal", n, idx, 1, primitive)
 		return node, 1
 	else
 		return _error(tokens, idx, "Internal error: passed non-number to number_literal", 1)
 	end
 end
 local function _string(tokens: Tokens, idx: number)
-	local node: ASTParseString = new_node("string", false, idx, 1)
+	local node: ASTString = new_node1("string", false, idx, 1)
 	return node, 1
 end
 local function enum(tokens: Tokens, idx: number)
-	local children, consumed = parse_chunk(tokens, idx + 1)
-	local consumed_total = consumed + 1
+	local node: ASTEnum = new_node2("enum", idx)
+	local children, consumed = parse_chunk(tokens, idx + 2)
+	local consumed_total = consumed + 2
+
+	if tokens[idx + 1] ~= "(" then
+		add_node_error(node, "Excpected opening parenthesis after enum")
+	end
+
+	if tokens[idx + consumed_total] ~= ")" then
+		add_node_error(node, "Expected closing parenthesis after enum")
+	else
+		consumed_total += 1
+	end
 
 	for i, v in children do
 		if v.Type ~= "string_literal" then
-			local err, _ =
-				_error(tokens, v.TokenIndex, `Unexpected {v.Value}, enum can only contain string literals`, v.TokenSize)
-			children[i] = err
+			add_node_error(v, `Unexpected {v.Value}, enum can only contain string literals`)
 		end
 	end
 
 	-- Specifies the size of the numbers stored in the buffer, not the length
 	-- table.insert(children, new_node("size_specifier", #children, -1, 0))
-	local node: ASTParseEnum = new_node("enum", children, idx, consumed_total)
+	local node: ASTEnum = new_node1("enum", children, idx, consumed_total)
 
 	return node, consumed_total
 end
 local function array(tokens: Tokens, idx: number)
-	local children, consumed = parse_chunk(tokens, idx + 1)
-	local consumed_total = consumed + 1
+	local node: ASTArray = new_node2("array", idx)
+	local children, consumed = parse_chunk(tokens, idx + 2)
+	local consumed_total = consumed + 2
+
+	if tokens[idx + 1] ~= "(" then
+		add_node_error(node, "Excpected opening parenthesis after array")
+	end
+
+	if tokens[idx + consumed_total] ~= ")" then
+		add_node_error(node, "Expected closing parenthesis after array")
+	else
+		consumed_total += 1
+	end
 
 	for i, v in children do
 		if not ASTNodeIsValidHost(v) then
 			if v.Type ~= "error" then
-				local err, _ = _error(
-					tokens,
-					v.TokenIndex,
-					`Unexpected {v.Value}, array can only contain read/write constructs`,
-					v.TokenSize
-				)
-				children[i] = err
+				add_node_error(v, `Unexpected {v.Value}, array can only contain read/write constructs`)
 			end
 		end
 	end
 
-	local node: ASTParseArray = new_node("array", children, idx, consumed_total)
+	node.Value = children
+	node.TokenSize = consumed_total
+
 	return node, consumed_total
 end
 local function periodic_array(tokens: Tokens, idx: number)
-	local children, consumed = parse_chunk(tokens, idx + 1)
-	local consumed_total = consumed + 1
+	local node: ASTPeriodicArray = new_node2("periodic_array", idx)
+	local children, consumed = parse_chunk(tokens, idx + 2)
+	local consumed_total = consumed + 2
+
+	if tokens[idx + 1] ~= "(" then
+		add_node_error(node, "Excpected opening parenthesis after periodic array")
+	end
+
+	if tokens[idx + consumed_total] ~= ")" then
+		add_node_error(node, "Expected closing parenthesis after periodic array")
+	else
+		consumed_total += 1
+	end
 
 	if #children == 0 then
-		return _error(tokens, idx, "periodic_array must contain at least one serializable object", consumed_total)
+		add_node_error(node, "periodic_array must contain at least one type")
 	else
 		for i, v in children do
+			-- TODO: Can this even happen?
 			if not ASTNodeIsValidHost(v) then
 				if v.Type ~= "error" then
-					local err, _ = _error(
-						tokens,
-						v.TokenIndex,
-						`Unexpected {v.Value}, array can only contain read/write constructs`,
-						v.TokenSize
-					)
-					children[i] = err
+					add_node_error(v, `Unexpected {v.Value}, array can only contain read/write constructs`)
 				end
 			end
 		end
 	end
 
-	local node: ASTParsePeriodicArray = new_node("periodic_array", children, idx, consumed_total)
+	node.Value = children
+	node.TokenSize = consumed_total
+
 	return node, consumed_total
 end
 local function map(tokens: Tokens, idx: number)
-	local children, consumed = parse_binding_list(tokens, idx + 1)
-	local consumed_total = consumed + 1
+	local node: ASTMap = new_node2("map", idx)
+	local children, consumed = parse_binding_list(tokens, idx + 2)
+	local consumed_total = consumed + 2
 
-	if #children > 1 then
-		for i, v in children do
-			local err, _ = _error(tokens, v.TokenIndex, "map can only have one binding", v.TokenSize)
-			children[i] = err
+	if tokens[idx + 1] ~= "(" then
+		add_node_error(node, "Excpected opening parenthesis after map")
+	end
+
+	if tokens[idx + consumed_total] ~= ")" then
+		add_node_error(node, "Expected closing parenthesis after map")
+	else
+		consumed_total += 1
+	end
+
+	if #children > 1 or #children == 0 then
+		add_node_error(node, `map can only have one binding, found {#children}`)
+	else
+		local child_type = children[1].Type
+		if child_type ~= "binding" and child_type ~= "error" then
+			add_node_error(node, `map expects children to be bindings, found {child_type} instead`)
 		end
-	elseif #children == 0 then
-		return _error(tokens, idx, "map must contain a type binding", consumed_total)
 	end
 
-	local child_type = children[1].Type
-	if child_type ~= "binding" and child_type ~= "error" then
-		return _error(tokens, idx, "map must contain a type binding", consumed_total)
-	end
+	node.Value = children
+	node.TokenSize = consumed_total
 
-	local node: ASTParseMap = new_node("map", children, idx, consumed_total)
 	return node, consumed_total
 end
 local function struct(tokens: Tokens, idx: number)
-	local children, consumed = parse_binding_list(tokens, idx + 1)
-	local consumed_total = consumed + 1
+	local node: ASTStruct = new_node2("struct", idx)
+	local children, consumed = parse_binding_list(tokens, idx + 2)
+	local consumed_total = consumed + 2
+	
+	if tokens[idx + 1] ~= "(" then
+		add_node_error(node, "Excpected opening parenthesis after struct")
+	end
+
+	if tokens[idx + consumed_total] ~= ")" then
+		add_node_error(node, "Expected closing parenthesis after struct")
+	else
+		consumed_total += 1
+	end
 
 	if #children > 0 then
 		for i, v in children do
 			local child_type = v.Type
 			if child_type ~= "binding" then
 				if child_type ~= "error" then
-					local err, _ = _error(tokens, v.TokenIndex, `struct expected type binding, got {v.Type}`, v.TokenSize)
-					children[i] = err
+					add_node_error(v, `struct expected type binding, got {v.Type}`)
 				end
 			else
 				local lhs = v.Value[1]
 				local lhs_type = lhs.Type
 				if lhs_type ~= "error" and lhs_type ~= "number_literal" and lhs_type ~= "string_literal" then
-					children[i] = _error(
-						tokens,
-						lhs.TokenIndex,
-						"left hand side of struct bindings must be a number or string literal",
-						lhs.TokenSize
-					)
+					add_node_error(lhs, `struct expected type binding, got {v.Type}`)
 				end
 			end
 		end
 	else
-		return _error(tokens, idx, "struct must contain at least one binding", consumed_total)
+		add_node_error(node, "struct must contain at least one binding")
 	end
 
-	local node: ASTParseStruct = new_node("struct", children, idx, consumed_total)
+	node.Value = children
+	node.TokenSize = consumed_total
 	return node, consumed_total
 end
 local function vector3(tokens: Tokens, idx: number)
-	local children, consumed = parse_chunk(tokens, idx + 1)
-	local consumed_total = consumed + 1
+	local node: ASTVector3 = new_node2("vector3", idx)
+	local children, consumed = parse_chunk(tokens, idx + 2)
+	local consumed_total = consumed + 2
+	
+	if tokens[idx + 1] ~= "(" then
+		add_node_error(node, "Excpected opening parenthesis after vector3")
+	end
 
-	local is_ok = #children == 3
+	if tokens[idx + consumed_total] ~= ")" then
+		add_node_error(node, "Expected closing parenthesis after vector3")
+	else
+		consumed_total += 1
+	end
+
+	if #children ~= 3 then
+		add_node_error(node, "vector3 expects 3 type literals for its vector components")
+	end
+
+	if #children ~= 3 then
+		add_node_error(node, "cframe expects 3 type literals for its vector components")
+	end
+
 	for i, v in children do
 		if v.Type ~= "type_literal" then
-			is_ok = false
-			break
+			add_node_error(v, "cframe expects type literals for its vector components only")
 		end
 	end
 
-	if not is_ok then
-		return _error(tokens, idx, "vector3 expects 3 type literals", consumed_total)
-	end
+	node.Value = children
+	node.TokenSize = consumed_total
 
-	local node: ASTParseVector3 = new_node("vector3", children, idx, consumed_total)
 	return node, consumed_total
 end
 local function cframe(tokens: Tokens, idx: number)
-	local children, consumed = parse_chunk(tokens, idx + 1)
-	local consumed_total = consumed + 1
+	local node: ASTCFrame = new_node2("cframe", idx)
+	local children, consumed = parse_chunk(tokens, idx + 2)
+	local consumed_total = consumed + 2
+	
+	if tokens[idx + 1] ~= "(" then
+		add_node_error(node, "Excpected opening parenthesis after cframe")
+	end
 
-	local is_ok = #children == 3
+	if tokens[idx + consumed_total] ~= ")" then
+		add_node_error(node, "Expected closing parenthesis after cframe")
+	else
+		consumed_total += 1
+	end
+
+	if #children ~= 3 then
+		add_node_error(node, "cframe expects 3 type literals for its vector components")
+	end
+
 	for i, v in children do
 		if v.Type ~= "type_literal" then
-			is_ok = false
-			break
+			add_node_error(v, "cframe expects type literals for its vector components only")
 		end
 	end
 
-	if not is_ok then
-		return _error(tokens, idx, "cframe expects 3 type literals (for encoding its position vector)", consumed_total)
-	end
+	node.Value = children
+	node.TokenSize = consumed_total
 
-	local node: ASTParseCFrame = new_node("cframe", children, idx, consumed_total)
 	return node, consumed_total
 end
 local function size_specifier(tokens: Tokens, idx: number)
@@ -1134,18 +1079,18 @@ local function size_specifier(tokens: Tokens, idx: number)
 		return _error(tokens, idx, "Expected number for size specifier", 3)
 	end
 
-	local node: ASTParseSizeSpecifier = new_node("size_specifier", size, idx, 3)
+	local node: ASTSizeSpecifier = new_node1("size_specifier", size, idx, 3)
 	return node, 3
 end
 local function max_size(tokens: Tokens, idx: number)
 	return size_specifier(tokens, idx)
 end
-local function binding(tokens: Tokens, idx: number, children: ASTValidTerminals, token_size: number)
-	local node: ASTParseBinding = new_node("binding", children, idx, token_size)
+local function binding(tokens: Tokens, idx: number, children: { ASTConstruct }, token_size: number)
+	local node: ASTBinding = new_node1("binding", children, idx, token_size)
 	return node, token_size
 end
 local function player(tokens: Tokens, idx: number)
-	local node: ASTParsePlayer = new_node("player", false, idx, 1)
+	local node: ASTPlayer = new_node1("player", false, idx, 1)
 	return node, 1
 end
 local function i8(tokens: Tokens, idx: number)
@@ -1228,23 +1173,23 @@ type ParseVisitor<
 	CFrameRet,
 	PlayerRet
 > = {
-	root: (ParentVisitor, ASTParseRoot) -> RootRet,
-	comment: (ParentVisitor, ASTParseComment) -> CommentRet,
-	error: (ParentVisitor, ASTParseError) -> ErrorRet,
-	type_literal: (ParentVisitor, ASTParseTypeLiteral) -> TypeLiteralRet,
-	string_literal: (ParentVisitor, ASTParseStringLiteral) -> StringLiteralRet,
-	number_literal: (ParentVisitor, ASTParseNumberLiteral) -> NumberLiteralRet,
-	enum: (ParentVisitor, ASTParseEnum) -> EnumRet,
-	array: (ParentVisitor, ASTParseArray) -> ArrayRet,
-	periodic_array: (ParentVisitor, ASTParsePeriodicArray) -> PeriodicArrayRet,
-	vector3: (ParentVisitor, ASTParseVector3) -> Vector3Ret,
-	size_specifier: (ParentVisitor, ASTParseSizeSpecifier) -> SizeSpecifierRet,
-	binding: (ParentVisitor, ASTParseBinding) -> BindingRet,
-	map: (ParentVisitor, ASTParseMap) -> MapRet,
-	string: (ParentVisitor, ASTParseString) -> StringRet,
-	struct: (ParentVisitor, ASTParseStruct) -> StructRet,
-	cframe: (ParentVisitor, ASTParseCFrame) -> CFrameRet,
-	player: (ParentVisitor, ASTParsePlayer) -> PlayerRet,
+	root: (ParentVisitor, ASTRoot) -> RootRet,
+	comment: (ParentVisitor, ASTComment) -> CommentRet,
+	error: (ParentVisitor, ASTError) -> ErrorRet,
+	type_literal: (ParentVisitor, ASTTypeLiteral) -> TypeLiteralRet,
+	string_literal: (ParentVisitor, ASTStringLiteral) -> StringLiteralRet,
+	number_literal: (ParentVisitor, ASTNumberLiteral) -> NumberLiteralRet,
+	enum: (ParentVisitor, ASTEnum) -> EnumRet,
+	array: (ParentVisitor, ASTArray) -> ArrayRet,
+	periodic_array: (ParentVisitor, ASTPeriodicArray) -> PeriodicArrayRet,
+	vector3: (ParentVisitor, ASTVector3) -> Vector3Ret,
+	size_specifier: (ParentVisitor, ASTSizeSpecifier) -> SizeSpecifierRet,
+	binding: (ParentVisitor, ASTBinding) -> BindingRet,
+	map: (ParentVisitor, ASTMap) -> MapRet,
+	string: (ParentVisitor, ASTString) -> StringRet,
+	struct: (ParentVisitor, ASTStruct) -> StructRet,
+	cframe: (ParentVisitor, ASTCFrame) -> CFrameRet,
+	player: (ParentVisitor, ASTPlayer) -> PlayerRet,
 }
 
 type ValidVisitor<
@@ -1265,21 +1210,21 @@ type ValidVisitor<
 	CFrameRet,
 	PlayerRet
 > = {
-	root: (ParentVisitor, ASTValidRoot) -> RootRet,
-	type_literal: (ParentVisitor, ASTValidTypeLiteral) -> TypeLiteralRet,
-	string_literal: (ParentVisitor, ASTValidStringLiteral) -> StringLiteralRet,
-	number_literal: (ParentVisitor, ASTValidNumberLiteral) -> NumberLiteralRet,
-	enum: (ParentVisitor, ASTValidEnum) -> EnumRet,
-	array: (ParentVisitor, ASTValidArray) -> ArrayRet,
-	periodic_array: (ParentVisitor, ASTValidPeriodicArray) -> PeriodicArrayRet,
-	vector3: (ParentVisitor, ASTValidVector3) -> Vector3Ret,
-	size_specifier: (ParentVisitor, ASTValidSizeSpecifier) -> SizeSpecifierRet,
-	binding: (ParentVisitor, ASTValidBinding) -> BindingRet,
-	map: (ParentVisitor, ASTValidMap) -> MapRet,
-	string: (ParentVisitor, ASTValidString) -> StringRet,
-	struct: (ParentVisitor, ASTValidStruct) -> StructRet,
-	cframe: (ParentVisitor, ASTValidCFrame) -> CFrameRet,
-	player: (ParentVisitor, ASTValidPlayer) -> PlayerRet,
+	root: (ParentVisitor, ASTRoot) -> RootRet,
+	type_literal: (ParentVisitor, ASTTypeLiteral) -> TypeLiteralRet,
+	string_literal: (ParentVisitor, ASTStringLiteral) -> StringLiteralRet,
+	number_literal: (ParentVisitor, ASTNumberLiteral) -> NumberLiteralRet,
+	enum: (ParentVisitor, ASTEnum) -> EnumRet,
+	array: (ParentVisitor, ASTArray) -> ArrayRet,
+	periodic_array: (ParentVisitor, ASTPeriodicArray) -> PeriodicArrayRet,
+	vector3: (ParentVisitor, ASTVector3) -> Vector3Ret,
+	size_specifier: (ParentVisitor, ASTSizeSpecifier) -> SizeSpecifierRet,
+	binding: (ParentVisitor, ASTBinding) -> BindingRet,
+	map: (ParentVisitor, ASTMap) -> MapRet,
+	string: (ParentVisitor, ASTString) -> StringRet,
+	struct: (ParentVisitor, ASTStruct) -> StructRet,
+	cframe: (ParentVisitor, ASTCFrame) -> CFrameRet,
+	player: (ParentVisitor, ASTPlayer) -> PlayerRet,
 }
 
 type VisitorInstance<Visitor> = Visitor & { CallStack: CallStack.SerDesmondStack | false }
@@ -1290,7 +1235,7 @@ type ErrorReportVisitor = ParseVisitor<
 	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 >
 
-local function PrintErrors(node: ASTParseNodes, src: string, locations: { TokenLocation })
+local function PrintErrors(node: ASTNodes, src: string, locations: { TokenLocation })
 	local source_by_line = string.split(src, "\n")
 	local line_start_idx: { number } = table.create(#source_by_line)
 
@@ -1403,7 +1348,7 @@ type PrintASTVisitor = ParseVisitor<
 	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 >
 
-local function PrintAST(ast: ASTParseRoot | ASTValidRoot)
+local function PrintAST(ast: ASTRoot)
 	local indent_lvl = 0
 
 	local function indent(lvl: number, str: string)
@@ -1414,7 +1359,7 @@ local function PrintAST(ast: ASTParseRoot | ASTValidRoot)
 		return str
 	end
 
-	local function print_desc(self, node: ASTParseNodes)
+	local function print_desc(self, node: ASTNodes)
 		local out = indent(indent_lvl, "")
 		out ..= node.Type
 
@@ -1517,7 +1462,7 @@ end
 
 type ValidateVisitor = ParseVisitor<
 	VisitorInstance<ValidateVisitor>,
-	ASTValidRoot?,
+	ASTRoot?,
 	nil,
 	number,
 	nil,
@@ -1540,7 +1485,7 @@ local ValidateVisitor: ValidateVisitor = {
 	root = function(self, node)
 		local is_valid = sum(VisitorCollectChildren(self, node)) < math.huge
 		if is_valid then
-			return (node :: any) :: ASTValidRoot
+			return (node :: any) :: ASTRoot
 		else
 			return nil
 		end
@@ -2586,11 +2531,11 @@ local function str_to_ast(str)
 	return ast, locations
 end
 
-function mod.Compile<S, D>(str, annotate_errors: boolean?, runtime_traceback: boolean?): (S?, D?, ASTValidRoot?)
+function mod.Compile<S, D>(str, annotate_errors: boolean?, runtime_traceback: boolean?): (S?, D?, ASTRoot?)
 	local parsed_ast_root, locations = str_to_ast(str)
 	--PrintAST(parsed_ast_root)
 
-	local valid_ast_root: ASTValidRoot? = ASTNodeAccept(parsed_ast_root, new_visitor_instance(ValidateVisitor))
+	local valid_ast_root: ASTRoot? = ASTNodeAccept(parsed_ast_root, new_visitor_instance(ValidateVisitor))
 	if not valid_ast_root then
 		if annotate_errors then
 			PrintErrors(parsed_ast_root, str, locations)
@@ -2622,7 +2567,7 @@ function mod.PrettyCompile(str, annotate_errors: boolean?)
 	}
 end
 
-function mod.PrintAST(ast: ASTParseRoot | ASTValidRoot)
+function mod.PrintAST(ast: ASTRoot | ASTRoot)
 	PrintAST(ast)
 end
 

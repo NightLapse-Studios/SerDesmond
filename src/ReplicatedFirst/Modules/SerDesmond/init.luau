@@ -1,5 +1,5 @@
 --!strict
-----!native
+--!native
 
 local Tokenizer = require(script.Tokenizer)
 local CallStack = require(script.DebugCallStack)

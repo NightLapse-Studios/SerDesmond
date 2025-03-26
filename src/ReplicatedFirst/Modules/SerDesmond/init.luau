@@ -537,17 +537,6 @@ local function parse_construct<R>(
 	end
 
 	if attribute then
-			-- Parser refactor: handle attribute errors
---[[ 		if not Attributes[attribute] then
-			if typeof(node.Value) == "table" then
-				local err, _ = NodeConstructors.error_with_children(tokens, idx + 1, `Unrecognized attribute {attribute}`, node.TokenSize + 2, node.Value)
-				return err, consumed + 2
-			else
-				local err, _ = NodeConstructors.error_with_children(tokens, idx + 1, `Unrecognized attribute {attribute}`, 3, {node})
-				return err, consumed + 2
-			end
-		end ]]
-
 		node.Attributes[attribute] = true
 	end
 
@@ -590,7 +579,8 @@ local function parse_binding(tokens: Tokens, idx: number): (ASTBinding | ASTErro
 	consumed += _consumed
 	idx += _consumed
 
-	if tokens[idx] == ":" then
+	local next_token = tokens[idx]
+	if next_token == ":" then
 		local rhs, _consumed = parse_construct(tokens, idx + 1)
 		consumed += (_consumed + 1)
 		idx += (_consumed + 1)
@@ -606,6 +596,14 @@ local function parse_binding(tokens: Tokens, idx: number): (ASTBinding | ASTErro
 		end
 
 		return binding, consumed
+	elseif next_token == ")" then
+		return NodeConstructors.error_with_children(
+			tokens,
+			idx - consumed,
+			"binding expects a left-hand type and right-hand type separated by a colon. E.g. `i8: f32`",
+			consumed,
+			lhs
+		)
 	else
 		local rhs, _consumed = parse_construct(tokens, idx)
 		consumed += _consumed
@@ -671,11 +669,6 @@ local function new_node1<T, R>(type: string, value: T, index: number, tokens_con
 	}
 
 	return (node :: any) :: R
-end
-
-local function add_node_error<R>(node: R, err: string)
-	node.Errors = node.Errors or { }
-	table.insert(node.Errors, err)
 end
 
 -- AST node constructor for when the caller will do some of the construction
@@ -2109,24 +2102,24 @@ local SerializeVisitor: SerializeVisitor = {
 
 		local wX, wY, wZ = fns[1], fns[2], fns[3]
 		local function s_cframe(v: CFrame, b: buffer, idx: number)
-			local s = 0
-			s += wX(v.X, b, idx + s)
-			s += wY(v.Y, b, idx + s)
-			s += wZ(v.Z, b, idx + s)
+				local s = 0
+				s += wX(v.X, b, idx + s)
+				s += wY(v.Y, b, idx + s)
+				s += wZ(v.Z, b, idx + s)
 
-			idx += s
-			
-			local r = 2^15 - 1
-			local pitch, yaw, roll = v:ToEulerAnglesYXZ()
-			pitch = (pitch / math.pi * r) // 1
-			yaw = (yaw / math.pi * r) // 1
-			roll = (roll / math.pi * r) // 1
-			
-			buffer.writei16(b, idx, pitch)
-			buffer.writei16(b, idx + 2, yaw)
-			buffer.writei16(b, idx + 4, roll)
+				idx += s
+				
+				local r = 2^15 - 1
+				local pitch, yaw, roll = v:ToEulerAnglesYXZ()
+				pitch = (pitch / math.pi * r) // 1
+				yaw = (yaw / math.pi * r) // 1
+				roll = (roll / math.pi * r) // 1
+				
+				buffer.writei16(b, idx, pitch)
+				buffer.writei16(b, idx + 2, yaw)
+				buffer.writei16(b, idx + 4, roll)
 
-			return s + 6
+				return s + 6
 		end
 
 		if self.CallStack then
@@ -2476,25 +2469,25 @@ local DeserializeVisitor: DeserializeVisitor = {
 
 		local rX, rY, rZ = fns[1], fns[2], fns[3]
 		local function d_cframe(b: buffer, idx: number)
-			local s = 0
-			local x, s1 = rX(b, idx + s)
-			s += s1
-			local y, s1 = rY(b, idx + s)
-			s += s1
-			local z, s1 = rZ(b, idx + s)
-			s += s1
+				local s = 0
+				local x, s1 = rX(b, idx + s)
+				s += s1
+				local y, s1 = rY(b, idx + s)
+				s += s1
+				local z, s1 = rZ(b, idx + s)
+				s += s1
 
-			idx += s
+				idx += s
 
-			local r = 2^15 - 1
-			local pitch = buffer.readi16(b, idx)
-			local yaw = buffer.readi16(b, idx + 2)
-			local roll = buffer.readi16(b, idx + 4)
+				local r = 2^15 - 1
+				local pitch = buffer.readi16(b, idx)
+				local yaw = buffer.readi16(b, idx + 2)
+				local roll = buffer.readi16(b, idx + 4)
 
-			local v = CFrame.new(Vector3.new(x, y, z))
-				 * CFrame.fromEulerAnglesYXZ(pitch / r * math.pi, yaw / r * math.pi, roll / r * math.pi)
-			
-			return v, s + 6
+				local v = CFrame.new(Vector3.new(x, y, z))
+					* CFrame.fromEulerAnglesYXZ(pitch / r * math.pi, yaw / r * math.pi, roll / r * math.pi)
+				
+				return v, s + 6
 		end
 		
 		if self.CallStack then

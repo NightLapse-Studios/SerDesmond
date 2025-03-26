@@ -1789,7 +1789,16 @@ local SizeCalcVisitor: SizeCalcVisitor = {
 		return sum(VisitorCollectChildren(self, node))
 	end,
 	cframe = function(self, node)
-		return sum(VisitorCollectChildren(self, node)) + 6
+		local angles_size
+		if node.Attributes.precise64 then
+			angles_size = 24
+		elseif node.Attributes.precise32 then
+			angles_size = 12
+		else
+			angles_size = 6
+		end
+
+		return sum(VisitorCollectChildren(self, node)) + angles_size
 	end,
 	player = function(self, node)
 		return 8
@@ -2101,7 +2110,43 @@ local SerializeVisitor: SerializeVisitor = {
 		local fns = VisitorCollectChildren(self, node)
 
 		local wX, wY, wZ = fns[1], fns[2], fns[3]
-		local function s_cframe(v: CFrame, b: buffer, idx: number)
+		local s_cframe
+		if node.Attributes.precise64 then
+			s_cframe = function(v: CFrame, b: buffer, idx: number)
+				local s = 0
+				s += wX(v.X, b, idx + s)
+				s += wY(v.Y, b, idx + s)
+				s += wZ(v.Z, b, idx + s)
+	
+				idx += s
+				
+				local pitch, yaw, roll = v:ToEulerAnglesYXZ()
+				
+				buffer.writef64(b, idx, pitch)
+				buffer.writef64(b, idx + 8, yaw)
+				buffer.writef64(b, idx + 16, roll)
+	
+				return s + 24
+			end
+		elseif node.Attributes.precise32 then
+			s_cframe = function(v: CFrame, b: buffer, idx: number)
+				local s = 0
+				s += wX(v.X, b, idx + s)
+				s += wY(v.Y, b, idx + s)
+				s += wZ(v.Z, b, idx + s)
+	
+				idx += s
+				
+				local pitch, yaw, roll = v:ToEulerAnglesYXZ()
+				
+				buffer.writef32(b, idx, pitch)
+				buffer.writef32(b, idx + 4, yaw)
+				buffer.writef32(b, idx + 8, roll)
+	
+				return s + 12
+			end
+		else
+			s_cframe = function(v: CFrame, b: buffer, idx: number)
 				local s = 0
 				s += wX(v.X, b, idx + s)
 				s += wY(v.Y, b, idx + s)
@@ -2120,6 +2165,7 @@ local SerializeVisitor: SerializeVisitor = {
 				buffer.writei16(b, idx + 4, roll)
 
 				return s + 6
+			end
 		end
 
 		if self.CallStack then
@@ -2468,7 +2514,51 @@ local DeserializeVisitor: DeserializeVisitor = {
 		local fns = VisitorCollectChildren(self, node)
 
 		local rX, rY, rZ = fns[1], fns[2], fns[3]
-		local function d_cframe(b: buffer, idx: number)
+		local d_cframe
+		if node.Attributes.precise64 then
+			d_cframe = function(b: buffer, idx: number)
+				local s = 0
+				local x, s1 = rX(b, idx + s)
+				s += s1
+				local y, s1 = rY(b, idx + s)
+				s += s1
+				local z, s1 = rZ(b, idx + s)
+				s += s1
+
+				idx += s
+
+				local pitch = buffer.readf64(b, idx)
+				local yaw = buffer.readf64(b, idx + 8)
+				local roll = buffer.readf64(b, idx + 16)
+
+				local v = CFrame.new(Vector3.new(x, y, z))
+					* CFrame.fromEulerAnglesYXZ(pitch, yaw, roll)
+				
+				return v, s + 24
+			end
+		elseif node.Attributes.precise32 then
+			d_cframe = function(b: buffer, idx: number)
+				local s = 0
+				local x, s1 = rX(b, idx + s)
+				s += s1
+				local y, s1 = rY(b, idx + s)
+				s += s1
+				local z, s1 = rZ(b, idx + s)
+				s += s1
+
+				idx += s
+
+				local pitch = buffer.readf32(b, idx)
+				local yaw = buffer.readf32(b, idx + 4)
+				local roll = buffer.readf32(b, idx + 8)
+
+				local v = CFrame.new(Vector3.new(x, y, z))
+					* CFrame.fromEulerAnglesYXZ(pitch, yaw, roll)
+				
+				return v, s + 12
+			end
+		else
+			d_cframe = function(b: buffer, idx: number)
 				local s = 0
 				local x, s1 = rX(b, idx + s)
 				s += s1
@@ -2488,6 +2578,7 @@ local DeserializeVisitor: DeserializeVisitor = {
 					* CFrame.fromEulerAnglesYXZ(pitch / r * math.pi, yaw / r * math.pi, roll / r * math.pi)
 				
 				return v, s + 6
+			end
 		end
 		
 		if self.CallStack then

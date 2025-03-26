@@ -119,11 +119,6 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 				)
 			]])
 		end)
-		local _, cframe_test = pcall(function()
-			return SerDesmond.PrettyCompile([[
-				cframe(i8, u32, i8)
-			]])
-		end)
 
 		T:Test("Size specifier", function()
 			local min_size, max_size = 1, 2 ^ 30 - 1
@@ -363,7 +358,13 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 				3.140000104904175
 			)
 		end)
-		T:Test("CFrame", function()
+		T:Test("Basice CFrame", function()
+			local _, cframe_test = pcall(function()
+				return SerDesmond.PrettyCompile([[
+					cframe(i8, u32, i8)
+				]])
+			end)
+			
 			T:ForContext("Compile",
 				T.Equal, typeof(cframe_test.Serialize), "function",
 				T.Equal, typeof(cframe_test.Deserialize), "function"
@@ -375,6 +376,42 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 				T.FuzzyEqual(1/100), look.X, 0.5773,
 				T.FuzzyEqual(1/100), look.Y, 0.5773,
 				T.FuzzyEqual(1/100), look.Z, 0.5773
+			)
+		end)
+		T:Test("CFrame attributes", function()
+			local _, comp = pcall(function()
+				return SerDesmond.PrettyCompile([[
+					@precise64 cframe(i8, i8, i8),
+					@precise32 cframe(i8, i8, i8),
+					string
+				]])
+			end)
+
+			T:ForContext("Compile",
+				T.Equal, typeof(comp.Serialize), "function",
+				T.Equal, typeof(comp.Deserialize), "function"
+			)
+
+			local f64, f32, tail_verifier = comp.Deserialize(comp.Serialize(
+				CFrame.new(Vector3.new(), Vector3.new(1, 1, 1)),
+				CFrame.new(Vector3.new(), Vector3.new(1, 1, 1)),
+				"yep"
+			))
+			local look = f64.LookVector
+			T:ForContext("precise64",
+				T.FuzzyEqual(1/100), look.X, 0.5773,
+				T.FuzzyEqual(1/100), look.Y, 0.5773,
+				T.FuzzyEqual(1/100), look.Z, 0.5773
+			)
+			local look = f32.LookVector
+			T:ForContext("precise32",
+				T.FuzzyEqual(1/100), look.X, 0.5773,
+				T.FuzzyEqual(1/100), look.Y, 0.5773,
+				T.FuzzyEqual(1/100), look.Z, 0.5773
+			)
+
+			T:ForContext("size check",
+				T.Equal, tail_verifier, "yep"
 			)
 		end)
 		T:Test("Comments", function()

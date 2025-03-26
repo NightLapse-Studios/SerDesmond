@@ -33,7 +33,7 @@ SerDesmond.Compile([[
 ]])
 ```
 
-## Constructs
+## Types / Constructs
 
 ### Type literals
 
@@ -178,6 +178,12 @@ local ser, des = SerDesmond.Compile([[
 local result = des(ser( {thing1 = 1, thing2 = 3.14} ))
 ```
 
+Fields in a struct can be marked as optional
+
+```lua
+[[ struct(@optional "thing1": i8) ]]
+```
+
 ### Vector3
 
 A simple Vector3 :~) Unlike most libraries each axis can be restricted to its own primitive.
@@ -186,7 +192,15 @@ A simple Vector3 :~) Unlike most libraries each axis can be restricted to its ow
 local ser, des = SerDesmond.Compile([[ vector3(i8, i32, i8)]])
 ```
 
-### Comments
+### Players
+
+Communicates a Player instance using the UserId and `PlayerService::GetPlayerByUserId`. Serialized players only make sense in the context of a server which has the player connected actively.
+
+```lua
+local ser, des = SerDesmond.Compile([[ player ]])
+```
+
+## Comments
 
 We support comments with the `#` symbol.
 
@@ -203,13 +217,11 @@ local ser, des = SerDesmond.Compile([[
 
 ## Attributes
 
-A construct can be prefixed with `@<attribute>` to add metadata to it. This metadata may or may not be used by the compiler, depending on if the attributed feature actually supports the attribute that was applied to it. Non-existent attributes will error, but non-applicable attributes will simply go ignored.
+A construct can be prefixed with `@<attribute>` to add metadata to it. If the attribute is not supported by the construct, then an error will be generated.
 
-TODO: Optional lint for non-applicable attributes 
+### @optional
 
-### Optional
-
-A binding in a struct can be marked as optional to signify that they may or may not exist in the supplied object. **Currently only `struct` supports this attribute.**
+A binding in a struct can be marked as optional to signify that they may or may not exist in the supplied object. Currently only struct supports this attribute.
 
 Note that using any optional fields in a struct adds overhead such as needing to count inputs to its SerDes which may be considerable in extreme scenarios.
 
@@ -219,6 +231,21 @@ SerDesmond.Compile([[
 		@optional
 		"thing1": i8
 	)
+]])
+```
+
+### @precise32, @precise64
+
+Overrides the default precision used to encode angles in cframes. Rarely necessary, but may be used to increase the precision of orientation. Default precision should be similar to roblox, which also encodes its angles into 6 bytes.
+
+```lua
+SerDesmond.Compile([[
+	# Uses f64s to encode Euler angles
+	@precise64 cframe(u8, u8, u8),
+	# Uses f32s to encode Euler angles
+	@precise32 cframe(u8, u8, u8),
+	# Compresses Euler angles into proportion of 2pi, using u16s
+	cframe(u8, u8, u8)
 ]])
 ```
 

@@ -1,6 +1,12 @@
+---
+sidebar_position: 5
+---
+
+EBNF grammar
+
 ```EBNF
     root = chunk EOF
-    chunk = construct {"," construct}
+    chunk = construct {[","] construct}
 
     type_literal = "i8"
     | "i16"

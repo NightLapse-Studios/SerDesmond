@@ -25,14 +25,14 @@ local a1, a2 = des(buf)
 -- a1 == 1, a2 == {[1] = 2}
 ```
 
-(WIP): Errors in the input can be annotated by passing `true` as the 2nd argument to `Compile`
-At the moment the output can be sloppy if there are multiple errors on one line
+Errors in the input can be annotated by passing `true` as the 2nd argument to `Compile`
 
 ```lua
-SerDesmond.Compile("array(i88, i8)", true)
-
---  			array(i88, i8)
---  			      ^^^
---  Error: Unrecognized type identifier i88
+SerDesmond.Compile("cframe(@optional array(i8), i8, i8)", true)
+--Ln 1:18
+--  cframe(@optional array(i8), i8, i8)
+--                   ^^^^^
+--  cframe expects only type literals for its vector components
+--  array does not support attribute "optional"
 ```
 

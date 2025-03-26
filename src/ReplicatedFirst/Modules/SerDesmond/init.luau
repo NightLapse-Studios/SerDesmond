@@ -2065,11 +2065,12 @@ local SerializeVisitor: SerializeVisitor = {
 	vector3 = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
 
+		local wX, wY, wZ = fns[1], fns[2], fns[3]
 		local function s_vector3(v: Vector3, b: buffer, idx: number)
 			local s = 0
-			s += fns[1](v.X, b, idx + s)
-			s += fns[2](v.Y, b, idx + s)
-			s += fns[3](v.Z, b, idx + s)
+			s += wX(v.X, b, idx + s)
+			s += wY(v.Y, b, idx + s)
+			s += wZ(v.Z, b, idx + s)
 
 			return s
 		end
@@ -2083,11 +2084,12 @@ local SerializeVisitor: SerializeVisitor = {
 	cframe = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
 
+		local wX, wY, wZ = fns[1], fns[2], fns[3]
 		local function s_cframe(v: CFrame, b: buffer, idx: number)
 			local s = 0
-			s += fns[1](v.X, b, idx + s)
-			s += fns[2](v.Y, b, idx + s)
-			s += fns[3](v.Z, b, idx + s)
+			s += wX(v.X, b, idx + s)
+			s += wY(v.Y, b, idx + s)
+			s += wZ(v.Z, b, idx + s)
 
 			idx += s
 			
@@ -2412,13 +2414,14 @@ local DeserializeVisitor: DeserializeVisitor = {
 	vector3 = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
 
+		local rX, rY, rZ = fns[1], fns[2], fns[3]
 		local function d_vector3(b: buffer, idx: number)
 			local s = 0
-			local x, s1 = fns[1](b, idx)
+			local x, s1 = rX(b, idx)
 			s += s1
-			local y, s2 = fns[2](b, idx + s)
+			local y, s2 = rY(b, idx + s)
 			s += s2
-			local z, s3 = fns[3](b, idx + s)
+			local z, s3 = rZ(b, idx + s)
 
 			return Vector3.new(x, y, z), s + s3
 		end
@@ -2448,13 +2451,14 @@ local DeserializeVisitor: DeserializeVisitor = {
 	cframe = function(self, node)
 		local fns = VisitorCollectChildren(self, node)
 
+		local rX, rY, rZ = fns[1], fns[2], fns[3]
 		local function d_cframe(b: buffer, idx: number)
 			local s = 0
-			local x, s1 = fns[1](b, idx + s)
+			local x, s1 = rX(b, idx + s)
 			s += s1
-			local y, s1 = fns[2](b, idx + s)
+			local y, s1 = rY(b, idx + s)
 			s += s1
-			local z, s1 = fns[3](b, idx + s)
+			local z, s1 = rZ(b, idx + s)
 			s += s1
 
 			idx += s

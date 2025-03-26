@@ -451,12 +451,32 @@ local Keywords: {
 	player: NodeConstructor<ASTPlayer>,
 }
 
-local Attributes = {
-	optional = true,
-}
-
 local function is_separator(c: string)
 	return c == "(" or c == ")" or c == "," or c == ":" or c == "[" or c == "]"
+end
+
+local SupportedAttributes: { [string]: {[string]: true} } = {
+	none = { },
+	binding = {
+		optional = true
+	},
+	cframe = {
+		precise32 = true,
+		precise64 = true
+	}
+}
+
+local function add_node_error<R>(node: R, err: string)
+	node.Errors = node.Errors or { }
+	table.insert(node.Errors, err)
+end
+
+local function check_attributes<R>(node: R, attrs: { [string]: true? })
+	for i,v in node.Attributes do
+		if not attrs[i] then
+			add_node_error(node, `{node.Type} does not support attribute "{i}"`)
+		end
+	end
 end
 
 local function parse_construct<R>(
@@ -1482,14 +1502,17 @@ type ValidateVisitor = ParseVisitor<
 >
 
 local function generic_validate_visitor_host_node(self: ValidateVisitor, node: any)
-	if node.Errors then
-		return math.huge
-	end
+	local attrs = SupportedAttributes[node.Type] or SupportedAttributes.none
+	check_attributes(node, attrs)
+	if node.Errors then return math.huge end
 	return sum(VisitorCollectChildren(self, node))
 end
 
 local function generic_validate_visitor_terminal(self: ValidateVisitor, node: any)
-	if node.Errors then return math.huge else return nil end
+	local attrs = SupportedAttributes[node.Type] or SupportedAttributes.none
+	check_attributes(node, attrs)
+	if node.Errors then return math.huge end
+	return nil
 end
 
 local ValidateVisitor: ValidateVisitor = {

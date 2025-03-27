@@ -32,6 +32,19 @@ type NodeAttributes = {
 	[string]: any,
 }
 
+-- Used in place of ASTNode because this file is taking FOREVER to type check
+-- Plus AST types are proving to not be very helpful
+type GenericASTNode = {
+	Type: string,
+	Value: any,
+	Extra: any,
+	TokenIndex: number,
+	TokenSize: number,
+	Attributes: NodeAttributes,
+	Errors: { string }?
+}
+type GenericASTNodes = { GenericASTNode }
+
 type ASTRoot = {
 	Type: "root",
 	Value: ASTNodes,
@@ -52,14 +65,11 @@ type ASTError = {
 }
 type ASTErrorWChildren = {
 	Type: "error",
-	Value: ASTNodes,
+	Value: GenericASTNodes,
 	Extra: string,
 	TokenIndex: number,
 	TokenSize: number,
 	Attributes: NodeAttributes,
-	-- TODO: Unimplemented This can happen if a host node is found where only literals should be
-	-- The host must tell its child (which is a host but shouldn't be) that it should be
-	-- a literal
 	Errors: { string }?
 }
 type ASTComment = {
@@ -190,8 +200,7 @@ type ASTCFrame = {
 }
 type ASTPlayer = {
 	Type: "player",
-	-- @NoCommit: wtf?
-	Value: { ASTPlayer },
+	Value: false,
 	Extra: false,
 	TokenIndex: number,
 	TokenSize: number,
@@ -330,7 +339,7 @@ local raw_byte_writers: { (v: number, b: buffer, idx: number) -> number } = {
 	[3] = w_u32,
 	[4] = w_u32,
 }
-local raw_byte_readers = {
+local raw_byte_readers: { (b: buffer, offset: number) -> (number, number)} = {
 	[1] = r_u8,
 	[2] = r_u16,
 	[3] = r_u32,
@@ -346,7 +355,7 @@ local function sum(t: { [any]: number })
 	return s
 end
 
-local function bits(n: number)
+local function bits(n: number): number
 	-- 1 is added to value because max we can store in a byte is 255, not 256
 	return math.log(n + 1, 2)
 end
@@ -368,7 +377,7 @@ local function bytes_to_store_dynamic_size(n: number): number
 	return bytes
 end
 
-local function write_size_specifier(v: number, b: buffer, idx: number)
+local function write_size_specifier(v: number, b: buffer, idx: number): number
 	assert(v < 2 ^ 30)
 	local bytes = bytes_to_store_dynamic_size(v)
 
@@ -383,7 +392,7 @@ local function write_size_specifier(v: number, b: buffer, idx: number)
 	return raw_byte_writers[bytes](v, b, idx)
 end
 
-local function read_size_specifier(b: buffer, idx: number)
+local function read_size_specifier(b: buffer, idx: number): (number, number)
 	-- To allowe a size specifier to terminate a buffer, we can't assume its size
 	local first = buffer.readu8(b, idx)
 	local bytes = bit32.extract(first, 0, 2) + 1
@@ -396,7 +405,7 @@ local function read_size_specifier(b: buffer, idx: number)
 	return dat, bytes
 end
 
-local function count_table_keys(t: {})
+local function count_table_keys(t: {}): number
 	local i = 0
 	for _, _ in t do
 		i += 1
@@ -492,8 +501,7 @@ local function parse_construct<R>(
 	local consumed = 0
 	
 	if not token then
-		local node, consumed = NodeConstructors.error(tokens, idx - 1, "Unexpected end of input", 1)
-		return node, consumed
+		return NodeConstructors.error(tokens, idx - 1, "Unexpected end of input", 1)
 	end
 	
 	while token == "@" do
@@ -596,7 +604,7 @@ local function parse_binding(tokens: Tokens, idx: number): (ASTBinding | ASTErro
 		end
 
 		return binding, consumed
-	elseif next_token == ")" then
+	elseif is_separator(next_token) then
 		return NodeConstructors.error_with_children(
 			tokens,
 			idx - consumed,
@@ -1275,7 +1283,7 @@ local function PrintErrors(node: ASTNodes, src: string, locations: { TokenLocati
 		line_start_idx[i] = string.len(source_by_line[i - 1] or "") + (line_start_idx[i - 1] or 0) + 1
 	end
 
-	local function highlight_src(node: ASTNode)
+	local function highlight_src(node: GenericASTNodes)
 		local location = locations[node.TokenIndex]
 
 		warn(`\nLn {location.Start.Line}:{location.Start.Index}`)
@@ -1300,7 +1308,7 @@ local function PrintErrors(node: ASTNodes, src: string, locations: { TokenLocati
 		warn(err_highlighter)
 	end
 
-	local function dump_errors(node: ASTNode)
+	local function dump_errors(node: GenericASTNode)
 		if node.Errors == nil then return end
 		for i,v in node.Errors do
 			warn(v)

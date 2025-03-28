@@ -120,6 +120,49 @@ function mod.__tests(G: LMT.LMGame, T: LMT.Tester)
 			]])
 		end)
 
+		T:Test("Booleans", function()
+			local ser, des, ast = SerDesmond.Compile([[boolean, boolean, boolean, array(boolean, boolean, boolean), string]], true)
+			T:ForContext("Compile",
+				T.Equal, typeof(ser), "function",
+				T.Equal, typeof(des), "function"
+			)
+
+			local buf = ser(false, true, false, {true, false, true}, "yep")
+			local a, b, c, d, tail_verifier = des(buf)
+			T:ForContext("Basic serdes",
+				T.Equal, a, false,
+				T.Equal, b, true,
+				T.Equal, c, false,
+				T.Equal, d[1], true,
+				T.Equal, d[2], false,
+				T.Equal, d[3], true,
+				T.Equal, tail_verifier, "yep"
+			)
+
+			local ser, des, _ = SerDesmond.Compile([[bool, bool, bool, bool, bool, bool, bool, bool, bool, string]])
+			local a,b,c,d,e,f,g,h, the_one, tail_verifier = des(ser(false, false, false, false, false, false, false, false, true, "yep"))
+			T:ForContext("When packing goes beyond 1 byte",
+				T.Equal, the_one, true,
+				T.Equal, tail_verifier, "yep",
+				-- Just to be thorough
+				T.Equal, if a or b or c or d or e or f or g or h then true else false, false
+			)
+
+			local ser, des, ast = SerDesmond.Compile([[periodic_array(bool, bool, bool, bool, bool, bool, bool, bool, bool), string]], true)
+			SerDesmond.PrintAST(ast)
+
+			local t, tail_verifier = 
+				des(
+					ser({false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false, true}, "yep")
+				)
+			T:ForContext("Under periodic arrays",
+				T.Equal, t[9], true,
+				T.Equal, t[10], false,
+				T.Equal, t[18], true,
+				T.Equal, tail_verifier, "yep"
+			)
+		end)
+
 		T:Test("Size specifier", function()
 			local min_size, max_size = 1, 2 ^ 30 - 1
 			local buf1 = buffer.create(4)

@@ -207,6 +207,15 @@ type ASTPlayer = {
 	Attributes: NodeAttributes,
 	Errors: { string }?
 }
+type ASTBool = {
+	Type: "bool",
+	Value: number,
+	Extra: false,
+	TokenIndex: number,
+	TokenSize: number,
+	Attributes: NodeAttributes,
+	Errors: { string }?
+}
 
 type ASTLiteral = ASTTypeLiteral | ASTStringLiteral | ASTNumberLiteral
 type ASTHostConstruct = ASTEnum
@@ -215,8 +224,7 @@ type ASTHostConstruct = ASTEnum
 	| ASTVector3
 	| ASTMap
 	| ASTCFrame
-	| ASTPlayer
-type ASTConstruct = ASTLiteral | ASTHostConstruct
+type ASTConstruct = ASTLiteral | ASTPlayer| ASTBool | ASTHostConstruct
 
 type ASTNode = ASTConstruct | ASTError | ASTErrorWChildren
 type ASTValidNode = ASTConstruct
@@ -405,6 +413,60 @@ local function read_size_specifier(b: buffer, idx: number): (number, number)
 	return dat, bytes
 end
 
+local function w_bool(v: boolean, b: buffer, idx: number)
+	buffer.writeu8(b, idx, if v then 1 else 0)
+end
+
+local function r_bool(b: buffer, idx: number): boolean
+	local v = buffer.readu8(b, idx)
+	-- Account for potentially packed bools
+	v = bit32.band(v, 1)
+	return v == 1
+end
+
+-- For bitpacking bools
+local function gen_bool_writer(n: number)
+	return function(v: boolean, b: buffer, idx: number)
+		if v then
+			local existing = buffer.readu8(b, idx)
+			existing = bit32.bor(existing, bit32.lshift(1, n))
+			buffer.writeu8(b, idx, existing)
+		end
+	end
+end
+
+-- For bitpacking bools
+local function gen_bool_reader(n: number)
+	return function(b: buffer, idx: number)
+		local v = buffer.readu8(b, idx)
+		v = bit32.band(v, bit32.lshift(1, n))
+
+		return v > 0
+	end
+end
+
+local bool_writers = {
+	[1] = w_bool,
+	[2] = gen_bool_writer(1),
+	[3] = gen_bool_writer(2),
+	[4] = gen_bool_writer(3),
+	[5] = gen_bool_writer(4),
+	[6] = gen_bool_writer(5),
+	[7] = gen_bool_writer(6),
+	[8] = gen_bool_writer(7),
+}
+
+local bool_readers = {
+	[1] = r_bool,
+	[2] = gen_bool_reader(1),
+	[3] = gen_bool_reader(2),
+	[4] = gen_bool_reader(3),
+	[5] = gen_bool_reader(4),
+	[6] = gen_bool_reader(5),
+	[7] = gen_bool_reader(6),
+	[8] = gen_bool_reader(7),
+}
+
 local function count_table_keys(t: {}): number
 	local i = 0
 	for _, _ in t do
@@ -458,6 +520,8 @@ local Keywords: {
 	vector3: NodeConstructor<ASTVector3 | ASTError>,
 	cframe: NodeConstructor<ASTCFrame | ASTError>,
 	player: NodeConstructor<ASTPlayer>,
+	bool: NodeConstructor<ASTBool>,
+	boolean: NodeConstructor<ASTBool>,
 }
 
 local function is_separator(c: string)
@@ -472,6 +536,9 @@ local SupportedAttributes: { [string]: {[string]: true} } = {
 	cframe = {
 		precise32 = true,
 		precise64 = true
+	},
+	bool = {
+		last = true
 	}
 }
 
@@ -705,7 +772,8 @@ local HostNodes = {
 	map = true,
 	struct = true,
 	cframe = true,
-	player = true
+	player = true,
+	bool = true
 }
 
 local function ASTNodeIsValidHost<Node>(node: Node)
@@ -1109,6 +1177,16 @@ local function player(tokens: Tokens, idx: number)
 	local node: ASTPlayer = new_node1("player", false, idx, 1)
 	return node, 1
 end
+local function bool(tokens: Tokens, idx: number): (ASTBool, number)
+	local node: ASTBool = new_node1("bool", 1, idx, 1)
+
+	-- This atttribute will be added in the context visitor pass
+	if node.Attributes.last then
+		add_node_error(node, "Use of internal attribute \"last\" on boolean")
+	end
+
+	return node, 1
+end
 local function i8(tokens: Tokens, idx: number)
 	return type_literal(tokens, idx)
 end
@@ -1166,6 +1244,8 @@ Keywords = {
 	vector3 = vector3,
 	cframe = cframe,
 	player = player,
+	bool = bool,
+	boolean = bool,
 }
 
 -- Visitor that can take in non-error-checked ASTs
@@ -1187,7 +1267,8 @@ type ParseVisitor<
 	MapRet,
 	StructRet,
 	CFrameRet,
-	PlayerRet
+	PlayerRet,
+	BoolRet
 > = {
 	root: (ParentVisitor, ASTRoot) -> RootRet,
 	comment: (ParentVisitor, ASTComment) -> CommentRet,
@@ -1206,6 +1287,7 @@ type ParseVisitor<
 	struct: (ParentVisitor, ASTStruct) -> StructRet,
 	cframe: (ParentVisitor, ASTCFrame) -> CFrameRet,
 	player: (ParentVisitor, ASTPlayer) -> PlayerRet,
+	bool: (ParentVisitor, ASTBool) -> BoolRet,
 }
 
 type ValidVisitor<
@@ -1224,7 +1306,8 @@ type ValidVisitor<
 	MapRet,
 	StructRet,
 	CFrameRet,
-	PlayerRet
+	PlayerRet,
+	BoolRet
 > = {
 	root: (ParentVisitor, ASTRoot) -> RootRet,
 	type_literal: (ParentVisitor, ASTTypeLiteral) -> TypeLiteralRet,
@@ -1241,6 +1324,7 @@ type ValidVisitor<
 	struct: (ParentVisitor, ASTStruct) -> StructRet,
 	cframe: (ParentVisitor, ASTCFrame) -> CFrameRet,
 	player: (ParentVisitor, ASTPlayer) -> PlayerRet,
+	bool: (ParentVisitor, ASTBool) -> BoolRet,
 }
 
 type VisitorInstance<Visitor> = Visitor & { CallStack: CallStack.SerDesmondStack | false }
@@ -1248,7 +1332,7 @@ type VisitorInstance<Visitor> = Visitor & { CallStack: CallStack.SerDesmondStack
 -- stylua: ignore
 type ErrorReportVisitor = ParseVisitor<
 	VisitorInstance<ErrorReportVisitor>,
-	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
+	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 >
 
 local function PrintErrors(node: ASTNodes, src: string, locations: { TokenLocation })
@@ -1357,7 +1441,8 @@ local function PrintErrors(node: ASTNodes, src: string, locations: { TokenLocati
 		string = generic_print_visitor_terminal,
 		struct = generic_print_visitor_host_node,
 		cframe = generic_print_visitor_host_node,
-		player = generic_print_visitor_terminal
+		player = generic_print_visitor_terminal,
+		bool = generic_print_visitor_terminal,
 	}
 
 	ASTNodeAccept(node, AnnotateSourceVisitor)
@@ -1366,7 +1451,7 @@ end
 -- stylua: ignore
 type PrintASTVisitor = ParseVisitor<
 	VisitorInstance<PrintASTVisitor>,
-	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
+	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
 >
 
 local function PrintAST(ast: ASTRoot)
@@ -1475,7 +1560,10 @@ local function PrintAST(ast: ASTRoot)
 		end,
 		player = function(self, node)
 			print_desc(self, node)
-		end
+		end,
+		bool = function(self, node)
+			print_desc(self, node)
+		end,
 	}
 
 	ASTNodeAccept(ast, visitor)
@@ -1486,10 +1574,10 @@ type ValidateVisitor = ParseVisitor<
 	ASTRoot?,
 	nil,
 	number,
-	nil,
-	nil,
-	nil,
-	nil,
+	number?,
+	number?,
+	number?,
+	number?,
 	number?,
 	number?,
 	number?,
@@ -1499,17 +1587,18 @@ type ValidateVisitor = ParseVisitor<
 	number?,
 	number?,
 	number?,
-	nil
+	number?,
+	number?
 >
 
-local function generic_validate_visitor_host_node(self: ValidateVisitor, node: any)
+local function generic_validate_visitor_host_node(self: ValidateVisitor, node: any): number?
 	local attrs = SupportedAttributes[node.Type] or SupportedAttributes.none
 	check_attributes(node, attrs)
 	if node.Errors then return math.huge end
 	return sum(VisitorCollectChildren(self, node))
 end
 
-local function generic_validate_visitor_terminal(self: ValidateVisitor, node: any)
+local function generic_validate_visitor_terminal(self: ValidateVisitor, node: any): number?
 	local attrs = SupportedAttributes[node.Type] or SupportedAttributes.none
 	check_attributes(node, attrs)
 	if node.Errors then return math.huge end
@@ -1546,7 +1635,72 @@ local ValidateVisitor: ValidateVisitor = {
 	end,
 	binding = generic_validate_visitor_host_node,
 	cframe = generic_validate_visitor_host_node,
-	player = generic_validate_visitor_terminal
+	player = generic_validate_visitor_terminal,
+	bool = generic_validate_visitor_terminal,
+}
+
+
+-- A visitor that applies context-aware rules to nodes
+type ContextVisitor = ParseVisitor<
+	VisitorInstance<ContextVisitor>,
+	nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil
+>
+
+local function generic_context_visitor_terminal(self, node: any)
+	-- Terminal nodes don't know anything!
+end
+
+local function generic_context_visitor_host(self, node: any)
+	-- Contiguous bool pass
+	-- We will count how many bools appear in a row, and tell all except every 8th that
+	-- they should actually pack themselves into the byte of the previous bool
+	local contiguous_bools = 0
+	for i = 1, #node.Value + 1, 1 do
+		local child = node.Value[i]
+		if child and child.Type == "bool" then
+			local bit_index = (contiguous_bools % 8) + 1
+			child.Value = bit_index
+			contiguous_bools += 1
+
+			if bit_index == 8 then
+				child.Attributes.last = true
+			end
+		elseif contiguous_bools > 0 then
+			local prev_child = node.Value[i - 1]
+			if prev_child.Type ~= "bool" then
+				add_node_error(node, `Internal error: detected end to contiguous bools, but previous node is not bool. Child index: {i}`)
+				break
+			end
+
+			node.Value[i - 1].Attributes.last = true
+			contiguous_bools = 0
+		end
+	end
+
+	VisitorTraverseChildren(self, node)
+end
+
+local ContextVisitor: ContextVisitor = {
+	root = generic_context_visitor_host,
+	comment = generic_context_visitor_terminal,
+	error = generic_context_visitor_terminal,
+	type_literal = generic_context_visitor_terminal,
+	string_literal = generic_context_visitor_terminal,
+	number_literal = generic_context_visitor_terminal,
+	string = generic_context_visitor_terminal,
+	enum = generic_context_visitor_host,
+	array = generic_context_visitor_host,
+	map = generic_context_visitor_host,
+	struct = generic_context_visitor_host,
+	periodic_array = generic_context_visitor_host,
+	vector3 = generic_context_visitor_host,
+	size_specifier = function(self, node)
+		return nil
+	end,
+	binding = generic_context_visitor_host,
+	cframe = generic_context_visitor_host,
+	player = generic_context_visitor_terminal,
+	bool = generic_context_visitor_terminal,
 }
 
 -- Calculates the byte size each argument to the serializer will take up
@@ -1569,6 +1723,7 @@ type SizeCalcVisitor = ValidVisitor<
 	(number | SizeCalcFn<unknown>, number | SizeCalcFn<unknown>) -> number,
 	SizeCalcFn<{ [string]: number }> | SizeCalcFn<{ unknown }>,
 	SizeCalcFn<{ [string | number]: unknown }> | number,
+	number,
 	number,
 	number
 >
@@ -1810,7 +1965,14 @@ local SizeCalcVisitor: SizeCalcVisitor = {
 	end,
 	player = function(self, node)
 		return 8
-	end
+	end,
+	bool = function(self, node)
+		if node.Value == 1 then
+			return 1
+		else
+			return 0
+		end
+	end,
 }
 
 -- Serialize/deserialize visitors assume the AST has not been mutated between each-others visits
@@ -1833,7 +1995,8 @@ type SerializeVisitor = ValidVisitor<
 	WriterFn<{ [unknown]: unknown }>,
 	WriterFn<{ [unknown]: unknown }>,
 	WriterFn<CFrame>,
-	WriterFn<Player>
+	WriterFn<Player>,
+	WriterFn<boolean>
 >
 
 local SerializeVisitor: SerializeVisitor = {
@@ -2199,6 +2362,22 @@ local SerializeVisitor: SerializeVisitor = {
 		end
 
 		return s_player
+	end,
+	bool = function(self, node)
+		local insert = bool_writers[node.Value]
+		local w_bool
+		if node.Attributes.last then
+			w_bool = function(v: boolean, b: buffer, idx: number)
+				insert(v, b, idx)
+				return 1
+			end
+		else
+			w_bool = function(v: boolean, b: buffer, idx: number)
+				insert(v, b, idx)
+				return 0
+			end
+		end
+		return w_bool
 	end
 }
 
@@ -2219,7 +2398,8 @@ type DeserializeVisitor = ValidVisitor<
 	ReaderFn<{ [unknown]: unknown }>,
 	ReaderFn<{ [unknown]: unknown }>,
 	ReaderFn<CFrame>,
-	ReaderFn<Player>
+	ReaderFn<Player>,
+	ReaderFn<boolean>
 >
 
 local DeserializeVisitor: DeserializeVisitor = {
@@ -2610,6 +2790,21 @@ local DeserializeVisitor: DeserializeVisitor = {
 		end
 
 		return d_player
+	end,
+	bool = function(self, node)
+		local extract = bool_readers[node.Value]
+		local d_bool
+		if node.Attributes.last then
+			d_bool = function(b: buffer, idx: number)
+				return extract(b, idx), 1
+			end
+		else
+			d_bool = function(b: buffer, idx: number)
+				return extract(b, idx), 0
+			end
+		end
+
+		return d_bool
 	end
 }
 
@@ -2637,6 +2832,7 @@ end
 
 function mod.Compile<S, D>(str, annotate_errors: boolean?, runtime_traceback: boolean?): (S?, D?, ASTRoot?)
 	local parsed_ast_root, locations = str_to_ast(str)
+	ASTNodeAccept(parsed_ast_root, new_visitor_instance(ContextVisitor))
 	--PrintAST(parsed_ast_root)
 
 	local valid_ast_root: ASTRoot? = ASTNodeAccept(parsed_ast_root, new_visitor_instance(ValidateVisitor))
@@ -2645,7 +2841,7 @@ function mod.Compile<S, D>(str, annotate_errors: boolean?, runtime_traceback: bo
 			PrintErrors(parsed_ast_root, str, locations)
 		end
 
-		return
+		return nil, nil, parsed_ast_root
 	end
 
 	local serialize_visitor = new_visitor_instance(SerializeVisitor)

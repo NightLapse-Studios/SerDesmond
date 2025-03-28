@@ -89,6 +89,15 @@ local result = des(ser({"one", "three"}))
 -- result == {"one", "three"}
 ```
 
+### Booleans
+
+Booleans can be written as `bool` or `boolean`. Sequential booleans that are the child of the same construct will use bitpacking to make the cost of booleans `ceil(8 / (n % 8))` bytes.
+
+```lua
+-- Targets a 1-byte buffer
+SerDesmond.Compile([[ array(bool, bool, bool) ]])
+```
+
 ### Arrays
 
 Arrays are a fixed-length ordered list of constructs. You cannot use less or more than the list of supplied constructs.
